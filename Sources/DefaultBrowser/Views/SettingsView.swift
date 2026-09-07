@@ -1,6 +1,10 @@
 import SwiftUI
 
 /// Settings window content: the browser order and a rescan button.
+///
+/// Nothing here overrides the mouse cursor. The popover is a menu bar surface
+/// where a pointing hand tells you a row is clickable; this is an ordinary
+/// window, and the system pointer is what a window is supposed to show.
 struct SettingsView: View {
     @EnvironmentObject private var store: BrowserStore
 
@@ -109,7 +113,6 @@ struct SettingsView: View {
                 .disabled(store.isSwitching)
                 .opacity(store.isSwitching ? 0.35 : 1)
                 .animation(.easeInOut(duration: 0.2), value: store.isSwitching)
-                .cursor(.pointingHand)
                 .help("Make \(browser.name) the default browser")
             }
         }
