@@ -17,7 +17,9 @@ struct PopoverContentView: View {
     static let headerHeight: CGFloat = 40
     static let footerHeight: CGFloat = 36
     static let listPadding: CGFloat = 8
-    static let rowSpacing: CGFloat = 2
+    /// Rows carry a hover fill, so they need enough air between them for the
+    /// highlight to read as one row rather than bleeding into its neighbour.
+    static let rowSpacing: CGFloat = 6
     static let maxListHeight: CGFloat = 380
     /// The empty state draws a 36pt glyph plus one line of text where the list would be.
     static let emptyStateHeight: CGFloat = 110

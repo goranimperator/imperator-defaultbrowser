@@ -131,8 +131,10 @@ Key rules:
 - **Accent override**: `UserDefaults.standard.set(0, forKey: "AppleAccentColor")` in main.swift
 - **Popover**: 340pt wide, `.transient`, `.background(Color.black.opacity(0.15))`
 - **HoverButton / LaunchAtLoginToggle**: opacity 0.45 to 1.0, `.easeInOut(0.2)`, in `Views/Components.swift`
-- **Rows**: 6pt corner radius; the default browser row is filled `AppColors.brand`. Rows have no
-  hover state on purpose: a highlight tracking the pointer down a short list reads as a glitch
+- **Rows**: 6pt corner radius, 6pt apart; the default browser row is filled `AppColors.brand`.
+  Rows that are not the default take a `Color.white.opacity(0.08)` hover fill over
+  `.easeInOut(0.15)`. The red row deliberately has none: clicking it does nothing, so lighting it
+  up would promise an action it does not perform
 - **Cryptex symlinks**: `Browser.icon` resolves symlinks before reading the icon, and the setter maps
   the Cryptex path back to `/Applications/Safari.app` (§22)
 - **SPM note**: asset catalogs do not compile under SPM, so there is no asset catalog here. The red
