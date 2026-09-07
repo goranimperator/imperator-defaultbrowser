@@ -16,11 +16,18 @@ if CommandLine.arguments.contains("--list-handlers-raw") {
     exit(0)
 }
 
+// Assertions over the pure logic. Reads nothing and changes nothing, so this one
+// is safe to run from the plain SPM binary.
+if CommandLine.arguments.contains("--self-test") {
+    exit(SelfTest.run())
+}
+
 // Headless switch, mainly for verification: run the binary inside the signed
 // bundle so LaunchServices sees a real app identity.
 if let flagIndex = CommandLine.arguments.firstIndex(of: "--set-default") {
     let bundleID = CommandLine.arguments.count > flagIndex + 1 ? CommandLine.arguments[flagIndex + 1] : ""
-    guard !bundleID.isEmpty else {
+    // A following flag is a forgotten argument, not a bundle identifier.
+    guard !bundleID.isEmpty, !bundleID.hasPrefix("-") else {
         FileHandle.standardError.write(Data("usage: --set-default <bundle id>\n".utf8))
         exit(2)
     }

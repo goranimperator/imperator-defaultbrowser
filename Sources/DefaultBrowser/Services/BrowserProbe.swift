@@ -33,9 +33,12 @@ enum BrowserProbe {
         if !finished { print("timed out waiting for LaunchServices") }
         guard status == 0 else { return status }
 
-        // LaunchServices needs a few seconds to rewrite its handler tables, so poll
-        // until the new default shows up rather than reporting a stale read.
-        let confirmDeadline = Date().addingTimeInterval(15)
+        // LaunchServices needs seconds to rewrite its handler tables, and how many
+        // is not predictable: usually 2 to 4, measured at over 15. Poll until the
+        // new default shows up rather than reporting a stale read. The window
+        // matches BrowserStore.confirmationWindow so both agree on what "failed"
+        // means.
+        let confirmDeadline = Date().addingTimeInterval(60)
         while Date() < confirmDeadline {
             if BrowserService.currentDefaultBundleID()?.lowercased() == browser.bundleID.lowercased() {
                 print("default now: \(browser.bundleID)")

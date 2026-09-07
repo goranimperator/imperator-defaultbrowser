@@ -4,9 +4,10 @@ import Foundation
 /// identifiers. Stored next to where the other Imperator apps keep their state.
 enum BrowserOrderStore {
     private static var directory: URL {
-        FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ImperatorDefaultBrowser", isDirectory: true)
+        let support = FileManager.default
+            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory() + "/Library/Application Support", isDirectory: true)
+        return support.appendingPathComponent("ImperatorDefaultBrowser", isDirectory: true)
     }
 
     private static var file: URL {

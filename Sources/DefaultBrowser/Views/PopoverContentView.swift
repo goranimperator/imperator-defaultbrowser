@@ -82,7 +82,7 @@ struct PopoverContentView: View {
                 ForEach(store.browsers) { browser in
                     BrowserRow(
                         browser: browser,
-                        isDefault: browser.bundleID == store.defaultBundleID
+                        isDefault: store.isDefault(browser)
                     ) {
                         store.makeDefault(browser, onSuccess: onSwitched)
                     }

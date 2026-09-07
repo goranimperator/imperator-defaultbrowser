@@ -3,10 +3,11 @@ import CoreServices
 
 /// Discovers installed browsers and reads or changes the system default handler.
 enum BrowserService {
-    /// LaunchServices is queried with real URLs rather than bare schemes because
-    /// `urlsForApplications(toOpen:)` takes a URL.
-    private static let httpsProbe = URL(string: "https://www.goranimperator.com")!
-    private static let httpProbe = URL(string: "http://www.goranimperator.com")!
+    /// LaunchServices is queried with URLs rather than bare schemes because
+    /// `urlsForApplications(toOpen:)` takes a URL. Only the scheme is read, so the
+    /// host is a placeholder and nothing is ever fetched.
+    private static let httpsProbe = URL(string: "https://example.com")!
+    private static let httpProbe = URL(string: "http://example.com")!
 
     /// Only apps living in a real application directory qualify. LaunchServices also
     /// registers throwaway browsers that Playwright, Puppeteer and Selenium unpack into
@@ -84,15 +85,21 @@ enum BrowserService {
         let target = settableURL(for: browser)
 
         workspace.setDefaultApplication(at: target, toOpenURLsWithScheme: "https") { httpsError in
-            guard httpsError != nil else {
-                workspace.setDefaultApplication(at: target, toOpenURLsWithScheme: "http") { _ in
-                    DispatchQueue.main.async { completion(nil) }
-                }
+            guard httpsError == nil else {
+                let fallbackError = legacySetHandler(bundleID: browser.bundleID)
+                DispatchQueue.main.async { completion(fallbackError) }
                 return
             }
 
-            let fallbackError = legacySetHandler(bundleID: browser.bundleID)
-            DispatchQueue.main.async { completion(fallbackError) }
+            // https moved but http is a separate role. Half a switch is worse than
+            // none, so if the second call fails the legacy setter takes over rather
+            // than leaving the two schemes pointing at different browsers.
+            workspace.setDefaultApplication(at: target, toOpenURLsWithScheme: "http") { httpError in
+                let fallbackError = httpError == nil
+                    ? nil
+                    : legacySetHandler(bundleID: browser.bundleID)
+                DispatchQueue.main.async { completion(fallbackError) }
+            }
         }
     }
 
@@ -150,14 +157,19 @@ enum BrowserService {
 
     // MARK: - Filters
 
-    private static func isInApplicationDirectory(_ path: String) -> Bool {
+    /// Internal rather than private so `--self-test` can exercise it without a
+    /// bundle on disk. Same for `declaresWebSchemes(urlTypes:)` below.
+    static func isInApplicationDirectory(_ path: String) -> Bool {
         applicationRoots.contains { root in
             path == root || path.hasPrefix(root + "/")
         }
     }
 
     private static func declaresWebSchemes(_ bundle: Bundle) -> Bool {
-        let urlTypes = bundle.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]] ?? []
+        declaresWebSchemes(urlTypes: bundle.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]] ?? [])
+    }
+
+    static func declaresWebSchemes(urlTypes: [[String: Any]]) -> Bool {
         var schemes = Set<String>()
         for type in urlTypes {
             for scheme in type["CFBundleURLSchemes"] as? [String] ?? [] {

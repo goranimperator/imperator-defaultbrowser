@@ -41,7 +41,7 @@ function stripComments(text) {
 }
 
 export function findBareAccentColor(text) {
-  return /\baccentColor\b/.test(stripComments(text).replace(/AppColors\.accent\b/g, ""));
+  return /\baccentColor\b/.test(stripComments(text));
 }
 
 for (const [file, text] of sources) {

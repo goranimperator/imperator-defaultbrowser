@@ -72,7 +72,7 @@ struct SettingsView: View {
     }
 
     private func settingsRow(_ browser: Browser) -> some View {
-        let isDefault = browser.bundleID == store.defaultBundleID
+        let isDefault = store.isDefault(browser)
         return HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 11))
@@ -107,6 +107,8 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(store.isSwitching)
+                .opacity(store.isSwitching ? 0.35 : 1)
+                .animation(.easeInOut(duration: 0.2), value: store.isSwitching)
                 .cursor(.pointingHand)
                 .help("Make \(browser.name) the default browser")
             }
