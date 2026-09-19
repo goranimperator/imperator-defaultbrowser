@@ -140,7 +140,13 @@ Key rules:
 - **Colors**: always `AppColors.brand`, never inline `Color(red: 0xa0/255, ...)` or bare `Color.accentColor`
 - **Dark mode**: forced via `NSApp.appearance = NSAppearance(named: .darkAqua)` in main.swift
 - **Accent override**: `UserDefaults.standard.set(0, forKey: "AppleAccentColor")` in main.swift
-- **Popover**: 340pt wide, `.transient`, `.background(Color.black.opacity(0.15))`
+- **Popover**: 340pt wide, `.transient`, and **no custom background**. §6.1 asks for
+  `.black.opacity(0.15)` on the content, which predates macOS 26 giving `NSPopover` its own
+  material. On macOS 27 that overlay is a second surface painted over the system one, and being a
+  plain rect it does not follow the popover's corner, so the curve reads tighter and squarer than
+  the panel it sits in. Captured both ways at 5x to confirm. `verify-brand.mjs` now fails if the
+  overlay comes back. The brand book still mandates it, so this is a recorded deviation: raise it
+  there before copying this app's popover into another one
 - **HoverButton / LaunchAtLoginToggle**: opacity 0.45 to 1.0, `.easeInOut(0.2)`, in `Views/Components.swift`
 - **Rows**: 6pt corner radius, 6pt apart; the default browser row is filled `AppColors.brand`.
   Rows that are not the default take a `Color.white.opacity(0.08)` hover fill over

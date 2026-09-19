@@ -80,11 +80,6 @@ require(
 require(allSource.includes(".frame(width: 340)"), "§5.1 popover is not 340pt wide");
 require(allSource.includes("popover.behavior = .transient"), "§6.1 popover is not .transient");
 require(allSource.includes("popover.animates = true"), "§6.1 popover does not animate");
-require(
-  allSource.includes("Color.black.opacity(0.15)"),
-  "§6.1 popover background is not black at 15%"
-);
-
 // §8.1 status bar item.
 require(
   allSource.includes("NSStatusItem.squareLength"),
@@ -98,6 +93,30 @@ require(
   popover.includes('Text("Imperator DefaultBrowser")') && popover.includes(".font(.headline)"),
   "§9.1 popover header does not show the app name as .headline"
 );
+// §6.1 asks for a .black.opacity(0.15) background on the popover content, which
+// predates macOS 26 giving NSPopover its own material. On macOS 27 that overlay
+// is a second surface painted over the system one, and being a plain rect it
+// does not follow the popover's corner, so the curve reads tighter than the
+// panel around it. This app paints nothing and lets the popover be the surface,
+// which is a deliberate deviation recorded in CLAUDE.md.
+function paintsPopoverBackground(text) {
+  return /\.background\(\s*Color\.black\.opacity\(0\.15\)/.test(stripComments(text));
+}
+
+require(
+  !paintsPopoverBackground(popover),
+  "§6.1 deviation lost: the popover paints a background over the system material again"
+);
+
+// Controls for that negative assertion: it has to fire on the shape it forbids,
+// and not on the comment that explains why the shape is gone.
+if (!paintsPopoverBackground("VStack { }\n.frame(width: 340)\n.background(Color.black.opacity(0.15))")) {
+  failures.push("control failed: the popover-background check does not fire on the overlay");
+}
+if (paintsPopoverBackground("// §6.1 asks for .background(Color.black.opacity(0.15)) here\n.frame(width: 340)")) {
+  failures.push("control failed: the popover-background check fires on a comment");
+}
+
 require(
   popover.indexOf("LaunchAtLoginToggle()") < popover.indexOf('Text("Quit")'),
   "§9.2 footer does not put Open at Login left of the actions"

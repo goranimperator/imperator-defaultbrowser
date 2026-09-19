@@ -47,7 +47,14 @@ struct PopoverContentView: View {
             footer
         }
         .frame(width: 340)
-        .background(Color.black.opacity(0.15))
+        // No custom background. Brand book §6.1 asks for .black.opacity(0.15)
+        // here, which dates from before macOS 26 gave the popover its own
+        // material. On macOS 27 that overlay paints a second surface on top of
+        // the system one, and because it is a plain rect it does not follow the
+        // popover's corner, so the curve reads tighter and squarer than the
+        // panel it sits in. Captured both ways at 5x: with the overlay the
+        // corner carries a dark square layer inside the glass, without it the
+        // surface is one piece and the corner is the popover's own.
     }
 
     private var header: some View {
