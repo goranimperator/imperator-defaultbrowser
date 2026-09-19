@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Toolchain and SDK
+
+`make build` passes `-platform_version` to the linker so the binary reports `minos 14.0` with
+`sdk 27.0`. AppKit picks which generation of a control to draw from that sdk field, not from the
+running macOS, and SwiftPM would otherwise stamp it with the deployment target and draw macOS 14 era
+controls forever. `tools/verify-sdk-stamp.mjs` gates both halves, because losing it is a purely
+visual regression that would ship unnoticed. Do not raise `platforms:` to fix a control's look: this
+is a public repo promising macOS 14.
+
+Full procedure: `~/Code/imperator/imperator-apps-brandbook/MACOS27-APP-UPGRADE.md`.
+
 ## Build
 
 ```bash
@@ -72,7 +83,7 @@ anywhere in the repository, and on a documented path that no longer exists.
 
 ## Architecture
 
-- **SPM** (Package.swift): Swift 5.9 tools, macOS 14+
+- **SPM** (Package.swift): tools 6.4, `swiftLanguageMode(.v5)`, macOS 14 minimum
 - **LSUIElement**: menu bar only, no dock icon
 - **MVVM**: `BrowserStore` (ObservableObject) → views
 - **Persistence**: `~/Library/Application Support/ImperatorDefaultBrowser/order.json` (browser order only)
@@ -135,13 +146,14 @@ Key rules:
   Rows that are not the default take a `Color.white.opacity(0.08)` hover fill over
   `.easeInOut(0.15)`. The red row deliberately has none: clicking it does nothing, so lighting it
   up would promise an action it does not perform
-- **Row switch**: `BrowserRow.indicator` is a drawn Capsule plus Circle, not a `Toggle`. An
-  `NSSwitch` installs its own cursor rect below SwiftUI, which overrides the row's pointing hand
-  and leaves an arrow over the most clickable-looking thing in the row; `allowsHitTesting(false)`
-  does not remove it. Do not swap it back to `Toggle`. On the red row the track is
-  `Color.black.opacity(0.45)` rather than brand red, which would hide the control in its own
-  background. The row is the control: the switch never takes a click of its own, which also rules
-  out switching the default browser off, something macOS does not allow
+- **Row switch**: `BrowserRow.indicator` is the system `Toggle`, identical to the footer's. It is
+  `allowsHitTesting(false)`: the row is the control, so the switch never takes a click of its own,
+  which also rules out switching the default browser off, something macOS does not allow. An
+  `NSSwitch` owns a cursor rect, so the pointer is an arrow while directly over the switch and the
+  pointing hand everywhere else on the row. That was a deliberate choice, not an oversight: a drawn
+  lookalike holds the pointing hand but violates §7.2, and four ways of beating the cursor rect
+  (`allowsHitTesting(false)`, a clear SwiftUI overlay, `NSCursor.set()` per move, an `NSView`
+  overlay with its own cursor rect) each still photographed as an arrow under `screencapture -C`
 - **Cryptex symlinks**: `Browser.icon` resolves symlinks before reading the icon, and the setter maps
   the Cryptex path back to `/Applications/Safari.app` (§22)
 - **SPM note**: asset catalogs do not compile under SPM, so there is no asset catalog here. The red

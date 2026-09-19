@@ -121,6 +121,20 @@ require(
   "§7.2 Open at Login toggle does not follow the switch spec"
 );
 
+// §7.2 on macOS 27: the switch measures 54x24pt, so scaleEffect(0.55) gives
+// 29.7x13.2. A hard frame around it only adds invisible padding while reading
+// as a size guarantee it does not provide.
+const components = sources.get("Sources/DefaultBrowser/Views/Components.swift") ?? "";
+require(
+  !/Toggle\([\s\S]{0,400}?\.frame\(width:/.test(stripComments(components)),
+  "§7.2 the Open at Login toggle still carries a fixed frame"
+);
+
+// Control for that negative assertion: it has to fire on the shape it forbids.
+if (!/Toggle\([\s\S]{0,400}?\.frame\(width:/.test('Toggle("", isOn: $x)\n.toggleStyle(.switch)\n.frame(width: 36, height: 20)')) {
+  failures.push("control failed: the toggle-frame check does not fire on a framed toggle");
+}
+
 // §10 About panel.
 const about = sources.get("Sources/DefaultBrowser/Views/AboutPanel.swift") ?? "";
 require(

@@ -13,12 +13,26 @@ RELEASE_BRANCH = main
 # Imperator Dev cert keeps the requirement stable across releases.
 CODESIGN_IDENTITY ?= Imperator Dev
 
+# AppKit picks which generation of controls to draw from the sdk field in
+# LC_BUILD_VERSION, not from the macOS it is running on. SwiftPM stamps that
+# field with the deployment target from Package.swift, so a build pinned to
+# macOS 14 draws macOS 14 era controls on any system, forever: a narrow switch
+# with a round knob instead of the wide capsule macOS 27 draws.
+#
+# These linker flags stamp the real SDK while leaving the minimum alone, so the
+# app still runs on macOS 14 and still draws current controls on macOS 27. Same
+# approach as imperator-airdrop and imperator-finder-terminal.
+MIN_MACOS = 14.0
+SDK_VERSION = $(shell xcrun --sdk macosx --show-sdk-version)
+PLATFORM_VERSION = -Xlinker -platform_version -Xlinker macos \
+	-Xlinker $(MIN_MACOS) -Xlinker $(SDK_VERSION)
+
 .PHONY: all build clean run install verify dist release check-version check-release icon
 
 all: build
 
 build:
-	swift build -c release
+	swift build -c release $(PLATFORM_VERSION)
 	@rm -rf "$(BUNDLE)"
 	@mkdir -p "$(BUNDLE)/Contents/MacOS" "$(BUNDLE)/Contents/Resources"
 	cp ".build/release/$(BINARY_NAME)" "$(BUNDLE)/Contents/MacOS/$(BINARY_NAME)"
@@ -55,6 +69,7 @@ verify: build
 	node tools/verify-selftest.mjs
 	node tools/verify-hygiene.mjs
 	node tools/verify-release.mjs
+	node tools/verify-sdk-stamp.mjs
 	@echo "All runnable gates passed. GATES.md G9 and G10 are manual."
 
 # Resources/AppIcon.icns is the artwork itself and is checked in, so there is

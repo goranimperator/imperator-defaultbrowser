@@ -27,10 +27,12 @@ struct LaunchAtLoginToggle: View {
         HStack(spacing: 6) {
             Text("Open at Login")
                 .font(.caption)
+            // No fixed frame. The switch is 54x24pt on macOS 27, so scaleEffect
+            // gives 29.7x13.2; a 36x20 frame only added invisible padding while
+            // reading as a size guarantee it never provided.
             Toggle("", isOn: $isEnabled)
                 .toggleStyle(.switch)
                 .scaleEffect(0.55)
-                .frame(width: 36, height: 20)
                 .tint(AppColors.brand)
                 .labelsHidden()
                 .onChange(of: isEnabled) { _, newValue in

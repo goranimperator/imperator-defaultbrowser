@@ -11,8 +11,12 @@
 
 ## Requirements
 
-Requires macOS 14 or later, Apple silicon. Built and tested on macOS 26 only; older versions are
+Requires macOS 14 or later, Apple silicon. Built and tested on macOS 27 only; older versions are
 expected to work but have not been verified.
+
+The binary keeps macOS 14 as its minimum while reporting the macOS 27 SDK. AppKit decides which
+generation of a control to draw from the SDK a binary reports, not from the macOS it is running on,
+so without that split the switches would be drawn in their macOS 14 shape on every system, forever.
 
 Install at your own risk. The app is not notarized and carries no Apple Developer signature, so
 macOS cannot vouch for it. It is provided as is, with no warranty, under the
@@ -35,9 +39,9 @@ There is no Dock icon. The app lives in the menu bar behind a globe glyph.
 
 ## Use
 
-Click the globe in the menu bar. The popover lists every installed browser, one per row, with the
-current default filled in brand red and marked with a checkmark. Click any other row and it becomes
-the default browser for http and https. LaunchServices needs a couple of seconds to propagate the
+Click the globe in the menu bar. The popover lists every installed browser, one per row, each with
+a switch on the right. The current default is filled in brand red with its switch on. Click any
+other row and it becomes the default browser for http and https. LaunchServices needs a couple of seconds to propagate the
 change; the row updates straight away and the app verifies in the background.
 
 **Settings** in the footer opens a window with two controls:
@@ -112,7 +116,7 @@ make verify
 
 Runs every runnable acceptance gate from [GATES.md](GATES.md): code signature, browser discovery,
 default detection, ordering, brand book compliance, launch smoke test, app icon, pure-logic
-self-test, repository hygiene and the packaged release. It quits any running instance first,
+self-test, repository hygiene, the packaged release and the SDK stamp. It quits any running instance first,
 because the launch smoke test needs the field clear. Two gates are deliberately manual, the live
 default-browser switch because it mutates a real system setting, and the rendered UI.
 
@@ -181,6 +185,7 @@ Run `make verify` first, and confirm the two manual gates still hold.
 
 | Path | Role |
 |------|------|
+| `Package.swift` | SwiftPM manifest: tools 6.4, Swift 5 language mode, macOS 14 minimum |
 | `Sources/DefaultBrowser/main.swift` | Entry point, `.accessory` activation policy, forced dark mode, headless flags |
 | `Sources/DefaultBrowser/AppDelegate.swift` | Status item, popover, settings window, app menu with Cmd+Q |
 | `Sources/DefaultBrowser/AppColors.swift` | Brand colour |

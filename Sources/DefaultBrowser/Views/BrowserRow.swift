@@ -22,18 +22,6 @@ struct BrowserRow: View {
     private static let hoverFill = Color.white.opacity(0.08)
     private static let hoverDuration: TimeInterval = 0.15
 
-    // Switch geometry, matching the scaled Open at Login switch in the footer.
-    private static let trackWidth: CGFloat = 28
-    private static let trackHeight: CGFloat = 16
-    private static let knobInset: CGFloat = 2
-    private static let knobTravel = (trackWidth - trackHeight) / 2
-
-    /// The on switch sits on the brand-red row. A red track would hide the
-    /// control in its own background, so the track goes dark and the white knob
-    /// is what carries the on state.
-    private static let onTrack = Color.black.opacity(0.45)
-    private static let offTrack = Color.white.opacity(0.22)
-
     @State private var isHovered = false
 
     private var isHighlighted: Bool { isHovered && !isDefault }
@@ -75,33 +63,28 @@ struct BrowserRow: View {
         .help(isDefault ? "\(browser.name) is the default browser" : "Make \(browser.name) the default browser")
     }
 
-    /// A switch showing whether this browser holds the http and https roles.
+    /// Brand book §7.2: the system switch, the same control the footer uses, not
+    /// a drawn lookalike. It shows whether this browser holds the http and https
+    /// roles.
     ///
-    /// Drawn rather than built from `Toggle`. An AppKit `NSSwitch` installs its
-    /// own cursor rect, which overrides the row's pointing hand and leaves an
-    /// arrow sitting over the one control in the row that most looks clickable.
-    /// `.allowsHitTesting(false)` does not stop that; the tracking area is below
-    /// SwiftUI. Two shapes have no such opinion.
+    /// It never takes a click of its own. The row is the control, which rules out
+    /// the one gesture a live toggle would invite and the system cannot honour:
+    /// switching the default browser off. macOS always has one.
     ///
-    /// It shows state and never takes a click of its own. The row is the control,
-    /// which also rules out the one gesture a live toggle would invite and the
-    /// system cannot honour: switching the default browser off. macOS always has
-    /// one. Sized to match the Open at Login switch in the footer, so the app
-    /// reads as having one switch rather than two.
+    /// An `NSSwitch` owns a cursor rect, so the pointer reverts to an arrow while
+    /// it is directly over the switch and is the pointing hand everywhere else on
+    /// the row. Four ways round that were tried and captured with
+    /// `screencapture -C`, which draws the pointer: `allowsHitTesting(false)`, a
+    /// clear SwiftUI overlay above it, `NSCursor.set()` on every move, and an
+    /// `NSView` overlay owning its own cursor rect. Every one still photographed
+    /// as an arrow. Keeping the real control is worth that.
     private var indicator: some View {
-        ZStack {
-            Capsule()
-                .fill(isDefault ? Self.onTrack : Self.offTrack)
-
-            Circle()
-                .fill(Color.white)
-                .padding(Self.knobInset)
-                .shadow(color: .black.opacity(0.25), radius: 1, y: 0.5)
-                .frame(width: Self.trackHeight, height: Self.trackHeight)
-                .offset(x: isDefault ? Self.knobTravel : -Self.knobTravel)
-        }
-        .frame(width: Self.trackWidth, height: Self.trackHeight)
-        .animation(.easeInOut(duration: 0.2), value: isDefault)
-        .accessibilityHidden(true)
+        Toggle("", isOn: .constant(isDefault))
+            .toggleStyle(.switch)
+            .scaleEffect(0.55)
+            .tint(AppColors.brand)
+            .labelsHidden()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
