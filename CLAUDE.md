@@ -149,11 +149,9 @@ Key rules:
 - **Row switch**: `BrowserRow.indicator` is the system `Toggle`, identical to the footer's. It is
   `allowsHitTesting(false)`: the row is the control, so the switch never takes a click of its own,
   which also rules out switching the default browser off, something macOS does not allow. An
-  `NSSwitch` owns a cursor rect, so the pointer is an arrow while directly over the switch and the
-  pointing hand everywhere else on the row. That was a deliberate choice, not an oversight: a drawn
-  lookalike holds the pointing hand but violates §7.2, and four ways of beating the cursor rect
-  (`allowsHitTesting(false)`, a clear SwiftUI overlay, `NSCursor.set()` per move, an `NSView`
-  overlay with its own cursor rect) each still photographed as an arrow under `screencapture -C`
+  indicator carries `.cursor(.arrow)`, so no toggle in the app ever shows the pointing hand. An
+  `NSSwitch` already forces an arrow from its own cursor rect, but stating it in the view keeps the
+  outcome from depending on a SwiftUI side effect. The pointing hand stays on the rest of the row
 - **Cryptex symlinks**: `Browser.icon` resolves symlinks before reading the icon, and the setter maps
   the Cryptex path back to `/Applications/Safari.app` (§22)
 - **SPM note**: asset catalogs do not compile under SPM, so there is no asset catalog here. The red

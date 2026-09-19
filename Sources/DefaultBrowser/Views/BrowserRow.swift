@@ -71,13 +71,10 @@ struct BrowserRow: View {
     /// the one gesture a live toggle would invite and the system cannot honour:
     /// switching the default browser off. macOS always has one.
     ///
-    /// An `NSSwitch` owns a cursor rect, so the pointer reverts to an arrow while
-    /// it is directly over the switch and is the pointing hand everywhere else on
-    /// the row. Four ways round that were tried and captured with
-    /// `screencapture -C`, which draws the pointer: `allowsHitTesting(false)`, a
-    /// clear SwiftUI overlay above it, `NSCursor.set()` on every move, and an
-    /// `NSView` overlay owning its own cursor rect. Every one still photographed
-    /// as an arrow. Keeping the real control is worth that.
+    /// No pointing hand over the switch. An `NSSwitch` owns a cursor rect that
+    /// already forces an arrow there, so this states the same outcome in the view
+    /// rather than leaving it to a side effect of AppKit that a future SwiftUI
+    /// release could take away. The pointing hand stays on the rest of the row.
     private var indicator: some View {
         Toggle("", isOn: .constant(isDefault))
             .toggleStyle(.switch)
@@ -86,5 +83,6 @@ struct BrowserRow: View {
             .labelsHidden()
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+            .cursor(.arrow)
     }
 }
