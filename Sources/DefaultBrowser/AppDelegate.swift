@@ -5,11 +5,10 @@ import Combine
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
-    private var popover: NSPopover!
-    private var hostingController: NSHostingController<AnyView>!
+    private var panel: MenuBarPanel!
+
     private var store: BrowserStore!
     private var settingsWindow: NSWindow?
-    private var eventMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -30,22 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showSettingsWindow()
         }
 
-        // Brand book §6.1: close the popover on any click outside it.
-        eventMonitor = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown]
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                // A click on our own status item is already handled by the button's
-                // action. Closing here too races with the toggle and can swallow the
-                // open, so leave that click alone.
-                if let statusWindow = self.statusItem.button?.window,
-                   NSMouseInRect(NSEvent.mouseLocation, statusWindow.frame, false) {
-                    return
-                }
-                self.closePopover()
-            }
-        }
+        // Brand book 6.1's click-outside dismissal lives in MenuBarPanel now,
+        // which owns the same monitor and the same exception for the status
+        // item's own click. Two monitors closing the same panel raced each
+        // other on the toggle.
     }
 
     // MARK: - Setup
@@ -73,33 +60,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         .environmentObject(store)
 
-        hostingController = NSHostingController(rootView: AnyView(contentView))
-
-        popover = NSPopover()
-        popover.behavior = .transient
-        popover.animates = true
-        popover.contentViewController = hostingController
-        updatePopoverSize()
-    }
-
-    /// Brand book §5.1: 340pt wide, height driven by the content. The height is
-    /// computed the same way MenuBarFolders computes its grid popover instead of
-    /// being left to SwiftUI, so the popover never opens clipped.
-    private func updatePopoverSize() {
-        let height = PopoverContentView.totalHeight(
-            browserCount: store.browsers.count,
-            hasError: store.errorMessage != nil
-        )
-        let size = NSSize(width: 340, height: height)
-        hostingController.preferredContentSize = size
-        popover.contentSize = size
+        // A MenuBarPanel rather than an NSPopover. macOS 27 draws its own menu
+        // bar panels as plain rounded rectangles: a 17.50 pt corner, no arrow
+        // and no animation, measured off Control Centre's Wi-Fi panel. An
+        // NSPopover draws none of that and exposes none of it for adjustment.
+        panel = MenuBarPanel(content: contentView, width: 340)
+        // The height is computed rather than taken from SwiftUI's fitting size,
+        // the same way MenuBarFolders computes its grid, so the panel never
+        // opens clipped.
+        panel.contentHeight = { [weak self] in
+            guard let self else { return 0 }
+            return PopoverContentView.totalHeight(
+                browserCount: self.store.browsers.count,
+                hasError: self.store.errorMessage != nil
+            )
+        }
     }
 
     private func observeStore() {
         store.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                MainActor.assumeIsolated { self?.updatePopoverSize() }
             }
             .store(in: &cancellables)
     }
@@ -172,7 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePopover() {
-        if popover.isShown {
+        if panel.isShown {
             closePopover()
         } else {
             showPopover()
@@ -184,13 +165,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // The default handler can change from System Settings or from a browser's own
         // prompt while this app sits idle, so rescan every time the popover opens.
         store.refresh()
-        updatePopoverSize()
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        panel.show(from: button)
         NSApp.activate(ignoringOtherApps: true)
     }
 
     private func closePopover() {
-        guard popover.isShown else { return }
-        popover.performClose(nil)
+        guard panel.isShown else { return }
+        panel.close()
     }
 }

@@ -76,10 +76,56 @@ require(
   "§2.6 AppColors.brand is not #A01818"
 );
 
-// §5.1 and §6.1 popover geometry and behaviour.
-require(allSource.includes(".frame(width: 340)"), "§5.1 popover is not 340pt wide");
-require(allSource.includes("popover.behavior = .transient"), "§6.1 popover is not .transient");
-require(allSource.includes("popover.animates = true"), "§6.1 popover does not animate");
+// §5.1 panel width, §6.1 surface and dismissal.
+require(allSource.includes(".frame(width: 340)"), "§5.1 menu bar panel is not 340pt wide");
+require(
+  allSource.includes("Color.black.opacity(0.15)"),
+  "§6.1 menu bar panel background is not black at 15%"
+);
+
+// §6.1 used to be satisfied by NSPopover's own .transient behaviour. The panel
+// is drawn by the app now, so the same three promises are checked against
+// MenuBarPanel: it is the system popover material, it dismisses on a click
+// outside, and it closes on Escape.
+const menuBarPanel = sources.get("Sources/DefaultBrowser/MenuBarPanel.swift") ?? "";
+require(menuBarPanel !== "", "§6.1 MenuBarPanel.swift is missing");
+require(
+  menuBarPanel.includes("container.material = .popover"),
+  "§6.1 the panel surface is not the system popover material"
+);
+require(
+  menuBarPanel.includes("addGlobalMonitorForEvents"),
+  "§6.1 the panel has no click-outside dismissal"
+);
+require(
+  menuBarPanel.includes("event.keyCode == 53"),
+  "§6.1 the panel does not close on Escape"
+);
+
+// The corner is the whole reason the panel exists. The number is measured, and
+// MenuBarPanel.swift carries the measurement; this only catches it being
+// changed by hand without one.
+require(
+  /static let cornerRadius: CGFloat = 18\.25\b/.test(menuBarPanel),
+  "§13 MenuBarPanel.cornerRadius is not the measured 18.25"
+);
+
+// Nothing may go back to NSPopover: it draws 26.25pt from an sdk 27.0 binary
+// and 9.5pt from an sdk 14.0 one, and exposes no radius to set.
+require(
+  !/\bNSPopover\b/.test(stripComments(allSource)),
+  "§6.1 an NSPopover is back; the menu bar panel has to stay app-drawn"
+);
+
+// Control for that negative assertion: it has to fire on the thing it forbids,
+// and not on the comments in MenuBarPanel.swift that explain why it is gone.
+if (!/\bNSPopover\b/.test(stripComments("let popover = NSPopover()"))) {
+  failures.push("control failed: the NSPopover check does not fire on a real use");
+}
+if (/\bNSPopover\b/.test(stripComments("// NSPopover draws its own frame and gives no way to set the radius"))) {
+  failures.push("control failed: the NSPopover check fires on a comment");
+}
+
 // §8.1 status bar item.
 require(
   allSource.includes("NSStatusItem.squareLength"),
@@ -93,30 +139,6 @@ require(
   popover.includes('Text("Imperator DefaultBrowser")') && popover.includes(".font(.headline)"),
   "§9.1 popover header does not show the app name as .headline"
 );
-// §6.1 asks for a .black.opacity(0.15) background on the popover content, which
-// predates macOS 26 giving NSPopover its own material. On macOS 27 that overlay
-// is a second surface painted over the system one, and being a plain rect it
-// does not follow the popover's corner, so the curve reads tighter than the
-// panel around it. This app paints nothing and lets the popover be the surface,
-// which is a deliberate deviation recorded in CLAUDE.md.
-function paintsPopoverBackground(text) {
-  return /\.background\(\s*Color\.black\.opacity\(0\.15\)/.test(stripComments(text));
-}
-
-require(
-  !paintsPopoverBackground(popover),
-  "§6.1 deviation lost: the popover paints a background over the system material again"
-);
-
-// Controls for that negative assertion: it has to fire on the shape it forbids,
-// and not on the comment that explains why the shape is gone.
-if (!paintsPopoverBackground("VStack { }\n.frame(width: 340)\n.background(Color.black.opacity(0.15))")) {
-  failures.push("control failed: the popover-background check does not fire on the overlay");
-}
-if (paintsPopoverBackground("// §6.1 asks for .background(Color.black.opacity(0.15)) here\n.frame(width: 340)")) {
-  failures.push("control failed: the popover-background check fires on a comment");
-}
-
 require(
   popover.indexOf("LaunchAtLoginToggle()") < popover.indexOf('Text("Quit")'),
   "§9.2 footer does not put Open at Login left of the actions"

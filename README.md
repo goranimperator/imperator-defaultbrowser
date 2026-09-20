@@ -39,10 +39,15 @@ There is no Dock icon. The app lives in the menu bar behind a globe glyph.
 
 ## Use
 
-Click the globe in the menu bar. The popover lists every installed browser, one per row, each with
+Click the globe in the menu bar. The panel lists every installed browser, one per row, each with
 a switch on the right. The current default is filled in brand red with its switch on. Click any
 other row and it becomes the default browser for http and https. LaunchServices needs a couple of seconds to propagate the
 change; the row updates straight away and the app verifies in the background.
+
+The panel is drawn by the app rather than by `NSPopover`, which is what lets it carry the corner
+macOS 27 actually draws in the menu bar. There is no arrow and no open or close animation, because
+the system's own menu bar panels have neither. The numbers behind that live in
+[`MenuBarPanel.swift`](Sources/DefaultBrowser/MenuBarPanel.swift).
 
 **Settings** in the footer opens a window with two controls:
 
@@ -61,7 +66,7 @@ None. The app requests no Accessibility, Input Monitoring, or Automation grants,
 `NSUsage` keys. It asks LaunchServices which apps handle http and https, reads their bundles for
 names and icons, and asks LaunchServices to change the handler.
 
-The one system integration is **Open at Login** in the popover footer. It calls
+The one system integration is **Open at Login** in the panel footer. It calls
 `SMAppService.mainApp.register()`, which adds the app to Login Items in System Settings. Turning the
 toggle off unregisters it.
 
@@ -83,7 +88,7 @@ later it refuses to let one app hand the browser role to another and returns
 `NSCocoaErrorDomain 256`, "The file couldn't be opened." So the app falls back to
 `LSSetDefaultHandlerForURLScheme`, deprecated since macOS 12 and still the only call that moves the
 role. Setting either scheme moves both. Either way the app confirms the result by re-reading the
-default rather than trusting the return value, and surfaces an error in the popover if the change
+default rather than trusting the return value, and surfaces an error in the panel if the change
 never landed.
 
 Bundle identifiers are compared case-insensitively throughout, because LaunchServices does not
@@ -123,7 +128,7 @@ default-browser switch because it mutates a real system setting, and the rendere
 The same gates with their recorded evidence, through the ledger:
 
 ```bash
-node /Users/goran/.claude/skills/unlazy/scripts/gate-check.mjs GATES.md
+node ~/.claude/skills/unlazy/scripts/gate-check.mjs GATES.md
 ```
 
 The binary carries a few headless flags the checks use, and they are handy on their own:
@@ -187,7 +192,8 @@ Run `make verify` first, and confirm the two manual gates still hold.
 |------|------|
 | `Package.swift` | SwiftPM manifest: tools 6.4, Swift 5 language mode, macOS 14 minimum |
 | `Sources/DefaultBrowser/main.swift` | Entry point, `.accessory` activation policy, forced dark mode, headless flags |
-| `Sources/DefaultBrowser/AppDelegate.swift` | Status item, popover, settings window, app menu with Cmd+Q |
+| `Sources/DefaultBrowser/AppDelegate.swift` | Status item, panel, settings window, app menu with Cmd+Q |
+| `Sources/DefaultBrowser/MenuBarPanel.swift` | The menu bar panel itself: surface, corner, placement, dismissal |
 | `Sources/DefaultBrowser/AppColors.swift` | Brand colour |
 | `Sources/DefaultBrowser/Models/Browser.swift` | One installed browser, plus case-insensitive identifier matching |
 | `Sources/DefaultBrowser/Services/BrowserService.swift` | LaunchServices discovery, filtering, and the two-path setter |
@@ -197,7 +203,7 @@ Run `make verify` first, and confirm the two manual gates still hold.
 | `Sources/DefaultBrowser/Services/SVGRenderer.swift` | SVG path data to `NSBezierPath` |
 | `Sources/DefaultBrowser/Services/BrowserProbe.swift` | Headless output for the verification flags |
 | `Sources/DefaultBrowser/Services/SelfTest.swift` | Assertions over the pure logic, run by `--self-test` |
-| `Sources/DefaultBrowser/Views/` | SwiftUI: popover, row, settings window, About panel |
+| `Sources/DefaultBrowser/Views/` | SwiftUI: panel content, row, settings window, About panel |
 | `Resources/` | `Info.plist`, `AppIcon.icns`, and the `AppIcon.png` this README shows |
 | `tools/` | The gate oracles behind `GATES.md` |
 

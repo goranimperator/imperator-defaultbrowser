@@ -4,6 +4,10 @@ BUNDLE      = build/$(APP_NAME).app
 DIST        = dist
 ZIP         = $(DIST)/Imperator-DefaultBrowser-$(VERSION).zip
 BUILD_NUMBER = $(shell git rev-list --count HEAD 2>/dev/null || echo 1)
+# `release` commits before it tags, but every variable in it expands first, so
+# the plain count is one short of the commit the tag will point at. `dist` alone
+# commits nothing, and there the plain count is right.
+RELEASE_BUILD_NUMBER = $(shell echo $$(( $(BUILD_NUMBER) + 1 )))
 RELEASE_BRANCH = main
 
 # Self-signed identity, not ad-hoc. The app registers a login item through
@@ -118,8 +122,9 @@ dist: check-version build
 # Bump version, commit, tag, push, publish the GitHub release with the zip attached.
 release: check-release
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(VERSION)" Resources/Info.plist
-	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(BUILD_NUMBER)" Resources/Info.plist
-	$(MAKE) dist VERSION=$(VERSION)
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(RELEASE_BUILD_NUMBER)" Resources/Info.plist
+	# Handed down, so the zip and the source plist agree on the number.
+	$(MAKE) dist VERSION=$(VERSION) BUILD_NUMBER=$(RELEASE_BUILD_NUMBER)
 	git add Resources/Info.plist
 	git commit -m "Release v$(VERSION)"
 	git tag -a v$(VERSION) -m "$(APP_NAME) $(VERSION)"

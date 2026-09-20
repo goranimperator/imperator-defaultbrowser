@@ -64,10 +64,10 @@ be open would be its own trap.
 The same gates with their recorded evidence, through the ledger:
 
 ```bash
-node /Users/goran/.claude/skills/unlazy/scripts/gate-check.mjs GATES.md
+node ~/.claude/skills/unlazy/scripts/gate-check.mjs GATES.md
 ```
 
-`GATES.md` holds the acceptance gates with their evidence. Eleven are runnable (`tools/verify-*.mjs`
+`GATES.md` holds the acceptance gates with their evidence. Twelve are runnable (`tools/verify-*.mjs`
 plus `swift build` and `make build`), two are manual: the live default-browser switch, because it
 mutates a real system setting, and the rendered UI. Add a gate rather than a comment when a
 behaviour needs protecting.
@@ -90,7 +90,10 @@ anywhere in the repository, and on a documented path that no longer exists.
 
 ### Key patterns
 
-- `NSStatusItem` + `NSPopover` (from imperator-menu-bar-folders and imperator-airdrop)
+- `NSStatusItem` + `MenuBarPanel`, an app-drawn `NSPanel`, not an `NSPopover`. `NSPopover` draws
+  its own frame, exposes no radius, and neither frame it draws is the one macOS puts in the menu
+  bar. Do not go back to it. The measurements are in `MenuBarPanel.swift`; do not restate them from
+  memory
 - Status bar glyph and popover header glyph are the Lucide `globe-check` SVG rendered through
   `SVGRenderer` to an `NSImage` with `isTemplate = true`, 14pt like Imperator AirDrop
 - `SVGRenderer.swift` is a verbatim copy of the one in imperator-menu-bar-folders. Only its
@@ -98,7 +101,8 @@ anywhere in the repository, and on a documented path that no longer exists.
   and `polygon` cases: keeping the file identical is what lets a parser fix move between the apps
   by copying it across
 - Popover height is calculated from constants in `PopoverContentView` and pushed into
-  `popover.contentSize`, the same way MenuBarFolders sizes its grid popover
+  `MenuBarPanel.contentHeight`, the same way MenuBarFolders sizes its grid, so the panel never
+  opens clipped
 - The global mouse-down monitor skips clicks inside the status item's own window; closing there too
   races with the button's toggle and swallows the open
 - `BrowserService` filters LaunchServices handlers by application directory, which is what keeps
@@ -111,9 +115,9 @@ anywhere in the repository, and on a documented path that no longer exists.
 
 ### Data flow
 
-`AppDelegate` builds one `BrowserStore` → the popover lists `store.browsers` → a row tap calls
+`AppDelegate` builds one `BrowserStore` → the panel lists `store.browsers` → a row tap calls
 `store.makeDefault` → `BrowserService` sets the handler → the store polls until LaunchServices
-agrees. Opening the popover always calls `store.refresh()`, because the default can change from
+agrees. Opening the panel always calls `store.refresh()`, because the default can change from
 System Settings or from a browser's own prompt while the app sits idle.
 
 ## Structure
@@ -121,7 +125,8 @@ System Settings or from a browser's own prompt while the app sits idle.
 ```
 Sources/DefaultBrowser/
   main.swift              # Bootstrap (.accessory), forced dark mode + red accent, headless flags
-  AppDelegate.swift       # Status item, popover, settings window, app menu
+  AppDelegate.swift       # Status item, panel, settings window, app menu
+  MenuBarPanel.swift      # The menu bar panel: surface, corner, placement, dismissal
   AppColors.swift         # Centralized brand color (AppColors.brand)
   ViewExtensions.swift    # .cursor(.pointingHand), .expandTapTarget()
   Models/Browser.swift
@@ -140,13 +145,9 @@ Key rules:
 - **Colors**: always `AppColors.brand`, never inline `Color(red: 0xa0/255, ...)` or bare `Color.accentColor`
 - **Dark mode**: forced via `NSApp.appearance = NSAppearance(named: .darkAqua)` in main.swift
 - **Accent override**: `UserDefaults.standard.set(0, forKey: "AppleAccentColor")` in main.swift
-- **Popover**: 340pt wide, `.transient`, and **no custom background**. §6.1 asks for
-  `.black.opacity(0.15)` on the content, which predates macOS 26 giving `NSPopover` its own
-  material. On macOS 27 that overlay is a second surface painted over the system one, and being a
-  plain rect it does not follow the popover's corner, so the curve reads tighter and squarer than
-  the panel it sits in. Captured both ways at 5x to confirm. `verify-brand.mjs` now fails if the
-  overlay comes back. The brand book still mandates it, so this is a recorded deviation: raise it
-  there before copying this app's popover into another one
+- **Menu bar panel**: 340pt wide, `NSVisualEffectView` with `.popover` material, and the content
+  lays `.background(Color.black.opacity(0.15))` over it. Dismissal and Escape are the panel's own,
+  not the delegate's: two monitors closing the same panel raced each other on the toggle
 - **HoverButton / LaunchAtLoginToggle**: opacity 0.45 to 1.0, `.easeInOut(0.2)`, in `Views/Components.swift`
 - **Rows**: 6pt corner radius, 6pt apart; the default browser row is filled `AppColors.brand`.
   Rows that are not the default take a `Color.white.opacity(0.08)` hover fill over
@@ -165,7 +166,7 @@ Key rules:
 - **App icon deviation**: §16.2 asks for a dark background with a red accent. The shipped
   `AppIcon.icns` is a black squircle with a violet sigil, supplied as finished artwork rather than
   generated, so it is the one place the family palette is not followed
-- **Known deviation**: §9.1 says the popover header carries no icon. This app puts a 14pt glyph
+- **Known deviation**: §9.1 says the panel header carries no icon. This app puts a 14pt glyph
   before the name because Imperator AirDrop, EQ, FreeGames and MenuBarFolders all do, and matching
   the family was the explicit requirement
 
