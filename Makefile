@@ -79,10 +79,14 @@ verify: build
 # Resources/AppIcon.icns is the artwork itself and is checked in, so there is
 # nothing to generate it from. This target only re-cuts the README preview from
 # it, which is what keeps the two in sync after the artwork is replaced.
+#
+# The 256px slice goes in whole rather than being scaled to 128. The README
+# renders it at width 128, which is 256 physical pixels on every Mac Goran owns,
+# so a 128px source ships visibly soft.
 icon:
 	@mkdir -p build/icon
 	iconutil -c iconset Resources/AppIcon.icns -o build/icon/AppIcon.iconset
-	sips -s format png -z 128 128 build/icon/AppIcon.iconset/icon_256x256.png --out Resources/AppIcon.png
+	cp build/icon/AppIcon.iconset/icon_256x256.png Resources/AppIcon.png
 	@rm -rf build/icon
 	@echo "Re-cut Resources/AppIcon.png from Resources/AppIcon.icns"
 

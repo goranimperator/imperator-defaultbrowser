@@ -41,8 +41,9 @@ There is no Dock icon. The app lives in the menu bar behind a globe glyph.
 
 Click the globe in the menu bar. The panel lists every installed browser, one per row, each with
 a switch on the right. The current default is filled in brand red with its switch on. Click any
-other row and it becomes the default browser for http and https. LaunchServices needs a couple of seconds to propagate the
-change; the row updates straight away and the app verifies in the background.
+other row and it becomes the default browser for http and https. LaunchServices needs a couple of
+seconds to propagate the change; the row updates straight away and the app verifies in the
+background.
 
 The panel is drawn by the app rather than by `NSPopover`, which is what lets it carry the corner
 macOS 27 actually draws in the menu bar. There is no arrow and no open or close animation, because
@@ -121,9 +122,10 @@ make verify
 
 Runs every runnable acceptance gate from [GATES.md](GATES.md): code signature, browser discovery,
 default detection, ordering, brand book compliance, launch smoke test, app icon, pure-logic
-self-test, repository hygiene, the packaged release and the SDK stamp. It quits any running instance first,
-because the launch smoke test needs the field clear. Two gates are deliberately manual, the live
-default-browser switch because it mutates a real system setting, and the rendered UI.
+self-test, repository hygiene, the packaged release and the SDK stamp. It quits any running
+instance first, because the launch smoke test needs the field clear. Two gates are deliberately
+manual, the live default-browser switch because it mutates a real system setting, and the
+rendered UI.
 
 The same gates with their recorded evidence, through the ledger:
 
@@ -216,8 +218,9 @@ it for light and dark menu bars. The same reason is why the red accent comes fro
 override rather than from an `AccentColor` asset.
 
 `Resources/AppIcon.icns` is the app icon artwork itself and is checked in, so there is nothing that
-generates it. `make icon` only re-cuts `Resources/AppIcon.png` from it, which is what keeps this
-README's preview in sync after the artwork is replaced.
+generates it. `make icon` only copies the `.icns` 256px slice out to `Resources/AppIcon.png`, the
+preview above. That slice goes in whole rather than scaled down: the README renders it at width
+128, which is 256 physical pixels on a Retina display, so a smaller source would ship soft.
 
 ## Third-party
 

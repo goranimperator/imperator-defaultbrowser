@@ -66,32 +66,30 @@ try {
     failures.push("the 1024px representation has no alpha channel");
   }
 
-  // The README preview has to match the current artwork. `sips` is deterministic
-  // for a given input, so re-cutting it and comparing hashes catches a .icns that
-  // was replaced without the preview being regenerated (make icon).
+  // The README preview has to be the current artwork's 256px slice, copied
+  // whole. The README renders it at width 128, which is 256 physical pixels on
+  // a Retina display, so a downscaled 128px source would ship visibly soft.
+  // Comparing hashes against the slice catches a .icns replaced without the
+  // preview being regenerated (make icon).
   if (!existsSync(preview)) {
     failures.push("Resources/AppIcon.png is missing");
   } else if (present.has("icon_256x256.png")) {
-    const expected = path.join(work, "expected-preview.png");
-    execFileSync(
-      "/usr/bin/sips",
-      ["-s", "format", "png", "-z", "128", "128", path.join(iconset, "icon_256x256.png"), "--out", expected],
-      { stdio: "pipe" }
-    );
+    const expected = path.join(iconset, "icon_256x256.png");
 
     if (md5(preview) !== md5(expected)) {
-      failures.push("Resources/AppIcon.png was not cut from the current .icns -- run make icon");
+      failures.push("Resources/AppIcon.png is not the current .icns 256px slice -- run make icon");
     }
 
-    // Control for that comparison: a different size must hash differently, or the
-    // check above would pass on any PNG at all.
-    const wrongSize = path.join(work, "wrong-size.png");
+    // Control for that comparison: a downscale of the same slice must hash
+    // differently, or the check above would pass on any PNG at all, including
+    // the soft 128px one this replaced.
+    const downscaled = path.join(work, "downscaled.png");
     execFileSync(
       "/usr/bin/sips",
-      ["-s", "format", "png", "-z", "64", "64", path.join(iconset, "icon_256x256.png"), "--out", wrongSize],
+      ["-s", "format", "png", "-z", "128", "128", expected, "--out", downscaled],
       { stdio: "pipe" }
     );
-    if (md5(wrongSize) === md5(expected)) {
+    if (md5(downscaled) === md5(expected)) {
       failures.push("control failed: the preview comparison cannot tell two different images apart");
     }
   }
