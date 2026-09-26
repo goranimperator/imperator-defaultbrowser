@@ -14,7 +14,6 @@ struct HoverButton<Label: View>: View {
             .opacity(isHovered ? 1.0 : 0.45)
             .animation(.easeInOut(duration: 0.2), value: isHovered)
             .onHover { isHovered = $0 }
-            .cursor(.pointingHand)
     }
 }
 

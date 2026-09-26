@@ -128,7 +128,7 @@ Sources/DefaultBrowser/
   AppDelegate.swift       # Status item, panel, settings window, app menu
   MenuBarPanel.swift      # The menu bar panel: surface, corner, placement, dismissal
   AppColors.swift         # Centralized brand color (AppColors.brand)
-  ViewExtensions.swift    # .cursor(.pointingHand), .expandTapTarget()
+  ViewExtensions.swift    # .expandTapTarget()
   Models/Browser.swift
   Services/               # BrowserService, BrowserStore, BrowserOrderStore, GlobeIcon, SVGRenderer, BrowserProbe, SelfTest
   Views/                  # PopoverContentView, BrowserRow, SettingsView, AboutPanel, Components
@@ -155,10 +155,8 @@ Key rules:
   up would promise an action it does not perform
 - **Row switch**: `BrowserRow.indicator` is the system `Toggle`, identical to the footer's. It is
   `allowsHitTesting(false)`: the row is the control, so the switch never takes a click of its own,
-  which also rules out switching the default browser off, something macOS does not allow. An
-  indicator carries `.cursor(.arrow)`, so no toggle in the app ever shows the pointing hand. An
-  `NSSwitch` already forces an arrow from its own cursor rect, but stating it in the view keeps the
-  outcome from depending on a SwiftUI side effect. The pointing hand stays on the rest of the row
+  which also rules out switching the default browser off, something macOS does not allow. Nothing
+  in the app changes the cursor: every hovered element keeps the macOS default arrow
 - **Cryptex symlinks**: `Browser.icon` resolves symlinks before reading the icon, and the setter maps
   the Cryptex path back to `/Applications/Safari.app` (§22)
 - **SPM note**: asset catalogs do not compile under SPM, so there is no asset catalog here. The red

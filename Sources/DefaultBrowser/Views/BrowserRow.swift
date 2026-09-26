@@ -55,11 +55,10 @@ struct BrowserRow: View {
         )
         .expandTapTarget()
         .onTapGesture(perform: action)
-        // The hover flag is set before .cursor so both react to the same region
-        // the tap target covers, not just the row's painted content.
+        // The hover flag is set on the same region the tap target covers, not
+        // just the row's painted content.
         .onHover { isHovered = $0 }
         .animation(.easeInOut(duration: Self.hoverDuration), value: isHighlighted)
-        .cursor(.pointingHand)
         .help(isDefault ? "\(browser.name) is the default browser" : "Make \(browser.name) the default browser")
     }
 
@@ -70,11 +69,6 @@ struct BrowserRow: View {
     /// It never takes a click of its own. The row is the control, which rules out
     /// the one gesture a live toggle would invite and the system cannot honour:
     /// switching the default browser off. macOS always has one.
-    ///
-    /// No pointing hand over the switch. An `NSSwitch` owns a cursor rect that
-    /// already forces an arrow there, so this states the same outcome in the view
-    /// rather than leaving it to a side effect of AppKit that a future SwiftUI
-    /// release could take away. The pointing hand stays on the rest of the row.
     private var indicator: some View {
         Toggle("", isOn: .constant(isDefault))
             .toggleStyle(.switch)
@@ -83,6 +77,5 @@ struct BrowserRow: View {
             .labelsHidden()
             .allowsHitTesting(false)
             .accessibilityHidden(true)
-            .cursor(.arrow)
     }
 }
