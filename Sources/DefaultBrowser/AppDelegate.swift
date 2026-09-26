@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import Combine
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -9,7 +8,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var store: BrowserStore!
     private var settingsWindow: NSWindow?
-    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Brand book §15.2: the name appears in the process list too.
@@ -21,7 +19,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupPopover()
         setupMainMenu()
-        observeStore()
 
         // Handy for a fresh install and for scripted checks: open straight into
         // Settings instead of making the user find the status item first.
@@ -75,14 +72,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 hasError: self.store.errorMessage != nil
             )
         }
-    }
-
-    private func observeStore() {
-        store.objectWillChange
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-            }
-            .store(in: &cancellables)
     }
 
     private func setupMainMenu() {

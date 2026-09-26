@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 // Checks that browser discovery returns real installed browsers and drops the
-// throwaway ones LaunchServices registers from tool caches.
+// throwaway ones LaunchServices registers from outside the application folders.
 //
 // The unfiltered handler list from `--list-handlers-raw` is the positive control:
-// the assertion "no cache paths in the filtered list" only means something if the
-// raw list actually contains cache paths for this machine to filter out.
+// the assertion "nothing outside an application root survived" only means
+// something if the raw list actually holds such a handler for this machine to
+// filter out. The control is stated against the application roots, not against a
+// list of known cache markers, because the roots are what BrowserService filters
+// on. A marker list goes stale the moment a tool ships its browser somewhere new:
+// Playwright uses ~/Library/Caches, Screaming Frog uses ~/.ScreamingFrogSEOSpider,
+// and the next one will pick a third place. Both get dropped for the same reason.
 
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -61,17 +66,26 @@ if (defaults.length !== 1) {
   failures.push(`expected exactly one browser marked default, found ${defaults.length}`);
 }
 
-// Positive control for the negative assertion above.
-const rawCachePaths = rawPaths.filter((p) => CACHE_MARKERS.some((m) => p.includes(m)));
-if (rawCachePaths.length === 0) {
+// Positive control for the negative assertions above.
+const outsiders = rawPaths.filter(
+  (p) => !ALLOWED_ROOTS.some((root) => p === root || p.startsWith(root + "/"))
+);
+if (outsiders.length === 0) {
   failures.push(
-    "control failed: the unfiltered handler list has no cache paths on this machine, " +
-      "so 'no cache paths after filtering' proves nothing"
+    "control failed: every handler LaunchServices reports already sits in an application " +
+      "root on this machine, so 'nothing outside a root survived' proves nothing. Install " +
+      "a tool that unpacks its own browser (Playwright, Puppeteer, Screaming Frog) and rerun"
   );
 } else if (rawPaths.length <= rows.length) {
   failures.push(
     `control failed: filtering dropped nothing (raw ${rawPaths.length}, filtered ${rows.length})`
   );
+} else {
+  for (const outsider of outsiders) {
+    if (rows.some((row) => row.appPath === outsider)) {
+      failures.push(`${outsider} survived filtering but sits outside every application root`);
+    }
+  }
 }
 
 if (failures.length > 0) {
@@ -83,5 +97,6 @@ console.log(`filtered ${rawPaths.length} handlers down to ${rows.length} browser
 for (const row of rows) {
   console.log(`  ${row.marker === "*" ? "default" : "       "} ${row.name} (${row.bundleID})`);
 }
-console.log(`control: dropped ${rawCachePaths.length} cached throwaway browser(s)`);
+console.log(`control: dropped ${outsiders.length} handler(s) outside every application root:`);
+for (const outsider of outsiders) console.log(`  ${outsider}`);
 console.log("DISCOVERY_OK");
