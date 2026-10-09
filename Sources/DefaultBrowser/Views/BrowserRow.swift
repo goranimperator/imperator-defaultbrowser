@@ -16,11 +16,14 @@ struct BrowserRow: View {
 
     static let height: CGFloat = 32
 
-    /// Faint enough to read as a surface lifting rather than a selection. The
-    /// popover sits on a translucent dark ground, so white at 8% is roughly what
-    /// an AppKit list uses for the same job in dark mode.
-    private static let hoverFill = Color.white.opacity(0.08)
-    private static let hoverDuration: TimeInterval = 0.15
+    /// Brand book: row hover is the brand red at 10%, the same fill Imperator
+    /// CRT Overlay puts behind a hovered preset row. Faint enough to read as a
+    /// surface lifting rather than a selection, and it ties the hover to the
+    /// colour the default row is filled with instead of introducing a second
+    /// highlight colour.
+    private static let hoverFill = AppColors.brand.opacity(0.1)
+    /// Brand book: 0.2s easeInOut for every hover state, rows included.
+    private static let hoverDuration: TimeInterval = 0.2
 
     @State private var isHovered = false
 

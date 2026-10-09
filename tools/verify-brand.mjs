@@ -154,6 +154,25 @@ const row = sources.get("Sources/DefaultBrowser/Views/BrowserRow.swift") ?? "";
 require(row.includes("cornerRadius: 6"), "§13 browser rows do not use a 6pt corner radius");
 require(row.includes("AppColors.brand"), "§7.5 the active row is not marked in brand red");
 
+// Row hover: the brand book gives one fill for a hovered row, brand red at 10%,
+// and 0.2s easeInOut for every hover state. This app shipped a white 8% fill at
+// 0.15s for several releases, which is a drift a reader cannot spot in a diff
+// of a colour constant, so it is pinned rather than described.
+require(
+  row.includes("hoverFill = AppColors.brand.opacity(0.1)"),
+  "§7.5 the row hover fill is not AppColors.brand.opacity(0.1)"
+);
+require(
+  row.includes("hoverDuration: TimeInterval = 0.2"),
+  "§7.5 the row hover transition is not 0.2s"
+);
+// Control for both: the fill this replaced must not be anywhere in the file, or
+// the two checks above would pass on a file that still carries the old one.
+require(
+  !row.includes("Color.white.opacity(0.08)"),
+  "§7.5 the old white row hover fill is still present"
+);
+
 // §7.2 toggle spec.
 require(
   allSource.includes(".toggleStyle(.switch)") &&

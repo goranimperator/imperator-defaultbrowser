@@ -150,9 +150,11 @@ Key rules:
   not the delegate's: two monitors closing the same panel raced each other on the toggle
 - **HoverButton / LaunchAtLoginToggle**: opacity 0.45 to 1.0, `.easeInOut(0.2)`, in `Views/Components.swift`
 - **Rows**: 6pt corner radius, 6pt apart; the default browser row is filled `AppColors.brand`.
-  Rows that are not the default take a `Color.white.opacity(0.08)` hover fill over
-  `.easeInOut(0.15)`. The red row deliberately has none: clicking it does nothing, so lighting it
-  up would promise an action it does not perform
+  Rows that are not the default take an `AppColors.brand.opacity(0.1)` hover fill over
+  `.easeInOut(0.2)`, the brand book's one row hover state and the same fill Imperator CRT Overlay
+  uses behind a hovered preset row. The red row deliberately has none: clicking it does nothing, so
+  lighting it up would promise an action it does not perform. `verify-brand.mjs` pins both the fill
+  and the duration, because a colour constant drifting back is not something a diff reader catches
 - **Row switch**: `BrowserRow.indicator` is the system `Toggle`, identical to the footer's. It is
   `allowsHitTesting(false)`: the row is the control, so the switch never takes a click of its own,
   which also rules out switching the default browser off, something macOS does not allow. Nothing
