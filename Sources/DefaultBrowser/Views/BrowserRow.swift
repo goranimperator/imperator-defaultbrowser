@@ -73,11 +73,7 @@ struct BrowserRow: View {
     /// the one gesture a live toggle would invite and the system cannot honour:
     /// switching the default browser off. macOS always has one.
     private var indicator: some View {
-        Toggle("", isOn: .constant(isDefault))
-            .toggleStyle(.switch)
-            .scaleEffect(0.55)
-            .tint(AppColors.brand)
-            .labelsHidden()
+        BrandSwitch(isOn: .constant(isDefault))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }

@@ -34,6 +34,15 @@ if let flagIndex = CommandLine.arguments.firstIndex(of: "--set-default") {
     exit(BrowserProbe.setDefault(bundleID: bundleID))
 }
 
+// Geometry readout for the row layout gate. Needs NSApplication up so AppKit
+// will build the control tree, but never shows a window or a status item.
+if CommandLine.arguments.contains("--measure-row") {
+    let app = NSApplication.shared
+    app.setActivationPolicy(.prohibited)
+    app.appearance = NSAppearance(named: .darkAqua)
+    exit(MainActor.assumeIsolated { LayoutProbe.measureRow() })
+}
+
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 

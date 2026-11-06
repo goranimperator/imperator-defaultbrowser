@@ -173,26 +173,53 @@ require(
   "§7.5 the old white row hover fill is still present"
 );
 
-// §7.2 toggle spec.
-require(
-  allSource.includes(".toggleStyle(.switch)") &&
-    allSource.includes(".scaleEffect(0.55)") &&
-    allSource.includes(".tint(AppColors.brand)"),
-  "§7.2 Open at Login toggle does not follow the switch spec"
-);
-
-// §7.2 on macOS 27: the switch measures 54x24pt, so scaleEffect(0.55) gives
-// 29.7x13.2. A hard frame around it only adds invisible padding while reading
-// as a size guarantee it does not provide.
+// §7.2 toggle spec. One switch type, used by both the row and the footer, so
+// the two cannot drift apart.
 const components = sources.get("Sources/DefaultBrowser/Views/Components.swift") ?? "";
 require(
-  !/Toggle\([\s\S]{0,400}?\.frame\(width:/.test(stripComments(components)),
-  "§7.2 the Open at Login toggle still carries a fixed frame"
+  components.includes(".toggleStyle(.switch)") &&
+    components.includes("static let scale: CGFloat = 0.55") &&
+    components.includes(".scaleEffect(Self.scale)") &&
+    components.includes(".tint(AppColors.brand)"),
+  "§7.2 BrandSwitch does not follow the switch spec"
 );
 
-// Control for that negative assertion: it has to fire on the shape it forbids.
-if (!/Toggle\([\s\S]{0,400}?\.frame\(width:/.test('Toggle("", isOn: $x)\n.toggleStyle(.switch)\n.frame(width: 36, height: 20)')) {
-  failures.push("control failed: the toggle-frame check does not fire on a framed toggle");
+// Every switch in the app is that one type. A second raw `.switch` Toggle
+// somewhere else is how the row and the footer drifted apart before.
+const rawSwitches = Object.entries(Object.fromEntries(sources))
+  .filter(([path, text]) =>
+    path !== "Sources/DefaultBrowser/Views/Components.swift" &&
+    stripComments(text).includes(".toggleStyle(.switch)")
+  )
+  .map(([path]) => path);
+require(
+  rawSwitches.length === 0,
+  `§7.2 a switch is built outside BrandSwitch: ${rawSwitches.join(", ")}`
+);
+
+// §7.2 the frame question. scaleEffect scales only what is drawn, so without a
+// frame cut to the scaled size the switch keeps a layout box wider than its
+// drawing and is pushed off the trailing padding of every row that holds one.
+// The 54x24 is the rendered control under the sdk 27 stamp the Makefile applies,
+// read off the live view tree by --measure-row. The same Toggle measures 42x25
+// in a plain swift build, because AppKit draws the control generation the sdk
+// field asks for, so the figure is only meaningful against the bundled binary.
+// verify-row-layout.mjs asserts the resulting gap there; this only pins the
+// shape: derived from the scale, never a typed-in literal that can drift from it.
+require(
+  components.includes("static let unscaled = CGSize(width: 54, height: 24)") &&
+    /static var size: CGSize\s*\{\s*CGSize\(width: unscaled\.width \* scale, height: unscaled\.height \* scale\)/.test(components) &&
+    components.includes(".frame(width: Self.size.width, height: Self.size.height)"),
+  "§7.2 the switch frame is not derived from the measured size times the scale"
+);
+
+// Control for the rule above: a hand-typed frame must not satisfy it.
+if (
+  /static var size: CGSize\s*\{\s*CGSize\(width: unscaled\.width \* scale, height: unscaled\.height \* scale\)/.test(
+    "static var size: CGSize { CGSize(width: 29.7, height: 13.2) }"
+  )
+) {
+  failures.push("control failed: the derived-frame check accepts a hand-typed size");
 }
 
 // §10 About panel.
