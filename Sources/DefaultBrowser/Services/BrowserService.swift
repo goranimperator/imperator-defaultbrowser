@@ -72,7 +72,8 @@ enum BrowserService {
 
     // MARK: - Switching
 
-    /// Hands the http and https roles to the given browser.
+    /// Hands the http and https roles to the given browser. Returns nil when the
+    /// switch was accepted, or the error that stopped it.
     ///
     /// The modern API is tried first so this keeps working if Apple opens it up, but
     /// on macOS 14 and later it refuses to let one app give the browser role to
@@ -80,27 +81,32 @@ enum BrowserService {
     /// The LaunchServices call it replaced is still honoured, so that is the
     /// fallback. Either way the caller confirms the result by re-reading the
     /// default rather than trusting the return value.
-    static func makeDefault(_ browser: Browser, completion: @escaping (Error?) -> Void) {
+    ///
+    /// `async` rather than a completion handler. The nested-callback version this
+    /// replaced captured a non-Sendable closure inside AppKit's own `@Sendable`
+    /// completion handler, which Swift 6 rejects, and the result had to be hopped
+    /// back to the main queue by hand at three separate exits.
+    @MainActor
+    static func makeDefault(_ browser: Browser) async -> Error? {
         let workspace = NSWorkspace.shared
         let target = settableURL(for: browser)
 
-        workspace.setDefaultApplication(at: target, toOpenURLsWithScheme: "https") { httpsError in
-            guard httpsError == nil else {
-                let fallbackError = legacySetHandler(bundleID: browser.bundleID)
-                DispatchQueue.main.async { completion(fallbackError) }
-                return
-            }
-
-            // https moved but http is a separate role. Half a switch is worse than
-            // none, so if the second call fails the legacy setter takes over rather
-            // than leaving the two schemes pointing at different browsers.
-            workspace.setDefaultApplication(at: target, toOpenURLsWithScheme: "http") { httpError in
-                let fallbackError = httpError == nil
-                    ? nil
-                    : legacySetHandler(bundleID: browser.bundleID)
-                DispatchQueue.main.async { completion(fallbackError) }
-            }
+        do {
+            try await workspace.setDefaultApplication(at: target, toOpenURLsWithScheme: "https")
+        } catch {
+            return legacySetHandler(bundleID: browser.bundleID)
         }
+
+        // https moved but http is a separate role. Half a switch is worse than
+        // none, so if the second call fails the legacy setter takes over rather
+        // than leaving the two schemes pointing at different browsers.
+        do {
+            try await workspace.setDefaultApplication(at: target, toOpenURLsWithScheme: "http")
+        } catch {
+            return legacySetHandler(bundleID: browser.bundleID)
+        }
+
+        return nil
     }
 
     /// LaunchServices' own setter, deprecated since macOS 12 but still the only call

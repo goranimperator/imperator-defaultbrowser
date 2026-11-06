@@ -8,6 +8,13 @@ import AppKit
 
 /// The app's glyph: a globe with a check mark. Used for the status bar item and
 /// for the popover header.
+///
+/// Main-actor isolated for the cache below. Every caller is a view or the app
+/// delegate, so this costs nothing and is what lets the target build in Swift 6
+/// language mode: a plain `static var` is shared mutable state there, and the
+/// alternative, a lock around a cache only the main thread ever reaches, would
+/// be ceremony around a race that cannot happen.
+@MainActor
 enum GlobeIcon {
     /// Lucide ships a 24x24 viewBox with stroke-width 2, which SVGRenderer scales.
     private static let elements: [SVGRenderer.Element] = [

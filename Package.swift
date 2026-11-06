@@ -7,9 +7,11 @@ import PackageDescription
 // nothing. The SDK the binary reports is stamped separately in the Makefile;
 // see the comment on PLATFORM_VERSION there for why that matters.
 //
-// swift-tools-version 6.4 turns on Swift 6 language mode, which stops on this
-// app's pre-concurrency AppKit code. swiftLanguageMode(.v5) keeps the current
-// semantics; moving to Swift 6 concurrency is its own migration.
+// Swift 6 language mode. The one thing that blocked it was a plain static image
+// cache in GlobeIcon, which is main-actor isolated now; everything else in the
+// app was already @MainActor. Do not drop back to .v5 to silence a new
+// diagnostic: in this app a concurrency error has meant a real main-thread
+// assumption that was not written down.
 let package = Package(
     name: "DefaultBrowser",
     platforms: [
@@ -19,7 +21,7 @@ let package = Package(
         .executableTarget(
             name: "DefaultBrowser",
             path: "Sources/DefaultBrowser",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
 )

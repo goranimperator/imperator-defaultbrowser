@@ -189,5 +189,8 @@ final class MenuBarPanel: NSPanel {
     // SwiftUI content unable to take the Escape key or drive its controls.
     override var canBecomeKey: Bool { true }
 
-    deinit { stopMonitoring() }
+    // `isolated deinit`, so this runs on the main actor and can still reach the
+    // monitor handles. A plain deinit is nonisolated in Swift 6 and cannot touch
+    // them at all: they are `Any?`, which is not Sendable.
+    isolated deinit { stopMonitoring() }
 }

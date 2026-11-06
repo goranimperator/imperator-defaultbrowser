@@ -3,8 +3,17 @@ import AppKit
 /// Headless output for `--list-browsers`, used by the verification scripts in tools/.
 /// One tab-separated record per browser; the default is marked with a leading `*`.
 enum BrowserProbe {
+    /// What the switching task reports back to the run loop below. A reference
+    /// type, not two local `var`s: a `Task` cannot write to captured locals.
+    @MainActor
+    private final class Outcome {
+        var status: Int32 = 1
+        var finished = false
+    }
+
     /// Headless switch for `--set-default <bundle id>`. Prints the outcome and the
     /// resulting default so a verification script can assert on it.
+    @MainActor
     static func setDefault(bundleID: String) -> Int32 {
         guard let browser = orderedBrowsers()
             .first(where: { $0.bundleID.lowercased() == bundleID.lowercased() }) else {
@@ -12,26 +21,27 @@ enum BrowserProbe {
             return 1
         }
 
-        var status: Int32 = 1
-        var finished = false
-        BrowserService.makeDefault(browser) { error in
+        let outcome = Outcome()
+        Task { @MainActor in
+            let error = await BrowserService.makeDefault(browser)
             if let error = error as NSError? {
                 print("failed: domain=\(error.domain) code=\(error.code) \(error.localizedDescription)")
             } else {
                 print("set: \(browser.name)")
-                status = 0
+                outcome.status = 0
             }
-            finished = true
+            outcome.finished = true
         }
 
-        // The result is delivered on the main queue, so the run loop has to keep
-        // turning; blocking on a semaphore here would deadlock.
+        // The setter is main-actor isolated and this runs before NSApplication
+        // starts, so the run loop has to keep turning for the task to make
+        // progress; blocking on a semaphore here would deadlock.
         let deadline = Date().addingTimeInterval(30)
-        while !finished, Date() < deadline {
+        while !outcome.finished, Date() < deadline {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
-        if !finished { print("timed out waiting for LaunchServices") }
-        guard status == 0 else { return status }
+        if !outcome.finished { print("timed out waiting for LaunchServices") }
+        guard outcome.status == 0 else { return outcome.status }
 
         // LaunchServices needs seconds to rewrite its handler tables, and how many
         // is not predictable: usually 2 to 4, measured at over 15. Poll until the

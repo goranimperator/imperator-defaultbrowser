@@ -4,7 +4,7 @@ import SwiftUI
 /// FreeGames and MenuBarFolders: 14pt glyph + app name header, divider, content,
 /// divider, footer with Open at Login on the left and actions on the right.
 struct PopoverContentView: View {
-    @EnvironmentObject private var store: BrowserStore
+    @Environment(BrowserStore.self) private var store
 
     /// Runs once a switch is accepted so the popover can close itself.
     let onSwitched: () -> Void

@@ -1,12 +1,21 @@
 import AppKit
-import Combine
+import Observation
 
+/// The one source of truth for the browser list, the current default, and the
+/// order the user dragged them into.
+///
+/// An Observation type rather than an `ObservableObject`. The practical
+/// difference here is the popover: with `@Published` every view that held the
+/// store re-rendered on every change, so the row list rebuilt while a switch was
+/// only flipping `isSwitching`. Observation tracks the properties a view
+/// actually read, so the footer toggle and the row list stop waking each other.
 @MainActor
-final class BrowserStore: ObservableObject {
-    @Published private(set) var browsers: [Browser] = []
-    @Published private(set) var defaultBundleID: String?
-    @Published private(set) var isSwitching = false
-    @Published var errorMessage: String?
+@Observable
+final class BrowserStore {
+    private(set) var browsers: [Browser] = []
+    private(set) var defaultBundleID: String?
+    private(set) var isSwitching = false
+    var errorMessage: String?
 
     /// LaunchServices rewrites its handler tables asynchronously, and re-reading the
     /// default right after a successful switch still returns the old browser.
@@ -21,9 +30,14 @@ final class BrowserStore: ObservableObject {
 
     /// Bundle identifiers in the order the user dragged them in Settings. Browsers
     /// missing from this list are newly discovered and keep their discovery order.
+    ///
+    /// Observed, not `@ObservationIgnored`: `hasCustomOrder` reads it, and the
+    /// Reset Order button is bound to that.
     private var customOrder: [String] = BrowserOrderStore.load()
 
-    private var confirmationWorkItem: DispatchWorkItem?
+    /// The confirmation poll. Cancelled rather than left to finish when a second
+    /// switch starts, so two polls cannot both write `errorMessage`.
+    @ObservationIgnored private var confirmationTask: Task<Void, Never>?
 
     func refresh() {
         browsers = BrowserOrderStore.apply(customOrder, to: BrowserService.installedBrowsers())
@@ -38,12 +52,13 @@ final class BrowserStore: ObservableObject {
 
     // MARK: - Ordering
 
-    /// Moves rows in Settings and persists the result.
-    func move(from source: IndexSet, to destination: Int) {
-        var reordered = browsers
-        reordered.move(fromOffsets: source, toOffset: destination)
-        browsers = reordered
-        customOrder = reordered.map(\.bundleID)
+    /// Commits a reorder from Settings. The view drives the drag itself and calls
+    /// this once, on drop, so a drag across five slots is one write rather than
+    /// five.
+    func reorder(to ordered: [Browser]) {
+        guard ordered.map(\.bundleID) != browsers.map(\.bundleID) else { return }
+        browsers = ordered
+        customOrder = ordered.map(\.bundleID)
         BrowserOrderStore.save(customOrder)
     }
 
@@ -68,57 +83,51 @@ final class BrowserStore: ObservableObject {
             return
         }
 
-        confirmationWorkItem?.cancel()
+        confirmationTask?.cancel()
         isSwitching = true
         errorMessage = nil
 
-        BrowserService.makeDefault(browser) { [weak self] error in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.isSwitching = false
+        Task {
+            let error = await BrowserService.makeDefault(browser)
+            isSwitching = false
 
-                if let error {
-                    self.refresh()
-                    self.errorMessage = "Could not switch to \(browser.name): \(error.localizedDescription)"
-                    return
-                }
-
-                // macOS accepted the change, so show it straight away and verify in
-                // the background rather than making the user watch a spinner.
-                self.defaultBundleID = browser.bundleID
-                self.scheduleConfirmation(
-                    of: browser,
-                    giveUpAt: Date().addingTimeInterval(Self.confirmationWindow)
-                )
-                onSuccess()
+            if let error {
+                refresh()
+                errorMessage = "Could not switch to \(browser.name): \(error.localizedDescription)"
+                return
             }
+
+            // macOS accepted the change, so show it straight away and verify in
+            // the background rather than making the user watch a spinner.
+            defaultBundleID = browser.bundleID
+            confirmationTask = Task { await confirm(browser) }
+            onSuccess()
         }
     }
 
-    private func scheduleConfirmation(of browser: Browser, giveUpAt deadline: Date) {
-        let work = DispatchWorkItem { [weak self] in
-            MainActor.assumeIsolated {
-                guard let self else { return }
+    /// Re-reads the default until it is the browser that was just set, or until the
+    /// window runs out. A loop rather than a self-rescheduling `DispatchWorkItem`:
+    /// the deadline and the give-up message read in order here, and cancelling the
+    /// task is what stops it, so a stale poll cannot outlive the switch that
+    /// started it.
+    private func confirm(_ browser: Browser) async {
+        let deadline = Date().addingTimeInterval(Self.confirmationWindow)
 
-                if browser.hasBundleID(BrowserService.currentDefaultBundleID()) {
-                    self.confirmationWorkItem = nil
-                    self.refresh()
-                    return
-                }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(Self.confirmationInterval))
+            guard !Task.isCancelled else { return }
 
-                guard Date() < deadline else {
-                    self.confirmationWorkItem = nil
-                    self.refresh()
-                    self.errorMessage =
-                        "\(browser.name) did not become the default browser. Set it in System Settings > Desktop & Dock."
-                    return
-                }
+            if browser.hasBundleID(BrowserService.currentDefaultBundleID()) {
+                refresh()
+                return
+            }
 
-                self.scheduleConfirmation(of: browser, giveUpAt: deadline)
+            guard Date() < deadline else {
+                refresh()
+                errorMessage =
+                    "\(browser.name) did not become the default browser. Set it in System Settings > Desktop & Dock."
+                return
             }
         }
-
-        confirmationWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.confirmationInterval, execute: work)
     }
 }

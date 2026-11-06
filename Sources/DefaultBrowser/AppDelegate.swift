@@ -55,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         )
-        .environmentObject(store)
+        .environment(store)
 
         // A MenuBarPanel rather than an NSPopover. macOS 27 draws its own menu
         // bar panels as plain rounded rectangles: a 17.50 pt corner, no arrow
@@ -131,7 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "Imperator DefaultBrowser"
-        window.contentView = NSHostingView(rootView: SettingsView().environmentObject(store))
+        window.contentView = NSHostingView(rootView: SettingsView().environment(store))
         window.setFrameAutosaveName("SettingsWindow")
         window.isReleasedWhenClosed = false
         window.center()
