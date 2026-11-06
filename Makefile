@@ -74,6 +74,9 @@ verify: build
 	node tools/verify-hygiene.mjs
 	node tools/verify-release.mjs
 	node tools/verify-sdk-stamp.mjs
+	node tools/verify-reorder.mjs
+	node tools/verify-row-layout.mjs
+	node tools/verify-modern.mjs
 	@echo "All runnable gates passed. GATES.md G9 and G10 are manual."
 
 # Resources/AppIcon.icns is the artwork itself and is checked in, so there is

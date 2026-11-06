@@ -94,6 +94,17 @@ enum SelfTest {
             !BrowserService.isInApplicationDirectory(NSHomeDirectory() + "/.cache/puppeteer/chrome/Chrome.app"),
             "a Puppeteer cache must not be an application directory"
         )
+        // Screaming Frog unpacks its own Chromium under a dotted directory in
+        // the home folder, nowhere near a cache path. It is here because the
+        // discovery gate used to prove its filter with a list of cache markers
+        // (ms-playwright, puppeteer, selenium) and this one matched none of
+        // them, so the real filter was working while its control was not.
+        expect(
+            !BrowserService.isInApplicationDirectory(
+                NSHomeDirectory() + "/.ScreamingFrogSEOSpider/chrome/147.0.7727.102-sf1/Chromium.app"
+            ),
+            "a tool's own unpacked browser must not be an application directory"
+        )
         // A path that merely starts with the same characters as a root is not
         // inside it, which is what the trailing slash in the check is for.
         expect(

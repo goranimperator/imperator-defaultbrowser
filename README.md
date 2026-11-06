@@ -54,9 +54,13 @@ the system's own menu bar panels have neither. The numbers behind that live in
 
 - **Scan for Browsers**: ask macOS again which browsers are installed, after installing or
   removing one.
-- **Browser Order**: drag the rows into the order you want the menu bar list to use. **Reset
-  Order** goes back to alphabetical. The order is saved to
-  `~/Library/Application Support/ImperatorDefaultBrowser/order.json`.
+- **Browser Order**: drag the rows into the order you want the menu bar list to use. The row you
+  grab lifts and follows the pointer while the others slide out of its way, so the drop only
+  confirms what is already on screen. **Reset Order** goes back to alphabetical. The order is
+  saved to `~/Library/Application Support/ImperatorDefaultBrowser/order.json`.
+
+  Rows can also be moved from the keyboard: VoiceOver exposes **Move Up** and **Move Down** on
+  every row.
 
 Every row in that window except the current default carries a **Set as default** action, so the
 switch can be made from there too.
@@ -122,10 +126,10 @@ make verify
 
 Runs every runnable acceptance gate from [GATES.md](GATES.md): code signature, browser discovery,
 default detection, ordering, brand book compliance, launch smoke test, app icon, pure-logic
-self-test, repository hygiene, the packaged release and the SDK stamp. It quits any running
-instance first, because the launch smoke test needs the field clear. Two gates are deliberately
-manual, the live default-browser switch because it mutates a real system setting, and the
-rendered UI.
+self-test, repository hygiene, the packaged release, the SDK stamp, the reorder gesture, the
+rendered row geometry and the Swift 6 settings. It quits any running instance first, because the
+launch smoke test needs the field clear. Two gates are deliberately manual, the live
+default-browser switch because it mutates a real system setting, and the rendered UI.
 
 The same gates with their recorded evidence, through the ledger:
 
@@ -148,6 +152,10 @@ The binary carries a few headless flags the checks use, and they are handy on th
 ```
 
 ```bash
+"build/Imperator DefaultBrowser.app/Contents/MacOS/DefaultBrowser" --measure-row
+```
+
+```bash
 "build/Imperator DefaultBrowser.app/Contents/MacOS/DefaultBrowser" --set-default com.apple.Safari
 ```
 
@@ -157,6 +165,11 @@ open -n "build/Imperator DefaultBrowser.app" --args --settings
 
 `--set-default` has to run from inside the signed bundle so LaunchServices sees a real app identity,
 and it changes a real system setting. `--self-test` reads and changes nothing.
+
+`--measure-row` renders one popover row offscreen and prints the switch's geometry. Run it from the
+bundled binary rather than `.build/release`: AppKit draws the generation of a control named by the
+sdk field in `LC_BUILD_VERSION`, which only `make build` stamps, and the switch is a different size
+under each.
 
 ## Release
 
@@ -192,19 +205,20 @@ Run `make verify` first, and confirm the two manual gates still hold.
 
 | Path | Role |
 |------|------|
-| `Package.swift` | SwiftPM manifest: tools 6.4, Swift 5 language mode, macOS 14 minimum |
+| `Package.swift` | SwiftPM manifest: tools 6.4, Swift 6 language mode, macOS 14 minimum |
 | `Sources/DefaultBrowser/main.swift` | Entry point, `.accessory` activation policy, forced dark mode, headless flags |
 | `Sources/DefaultBrowser/AppDelegate.swift` | Status item, panel, settings window, app menu with Cmd+Q |
 | `Sources/DefaultBrowser/MenuBarPanel.swift` | The menu bar panel itself: surface, corner, placement, dismissal |
 | `Sources/DefaultBrowser/AppColors.swift` | Brand colour |
 | `Sources/DefaultBrowser/Models/Browser.swift` | One installed browser, plus case-insensitive identifier matching |
 | `Sources/DefaultBrowser/Services/BrowserService.swift` | LaunchServices discovery, filtering, and the two-path setter |
-| `Sources/DefaultBrowser/Services/BrowserStore.swift` | `@MainActor ObservableObject`, optimistic update and confirmation polling |
+| `Sources/DefaultBrowser/Services/BrowserStore.swift` | `@MainActor @Observable`, optimistic update and confirmation polling |
 | `Sources/DefaultBrowser/Services/BrowserOrderStore.swift` | The saved order, as JSON in Application Support |
 | `Sources/DefaultBrowser/Services/GlobeIcon.swift` | The menu bar glyph, as Lucide SVG path data |
 | `Sources/DefaultBrowser/Services/SVGRenderer.swift` | SVG path data to `NSBezierPath` |
 | `Sources/DefaultBrowser/Services/BrowserProbe.swift` | Headless output for the verification flags |
 | `Sources/DefaultBrowser/Services/SelfTest.swift` | Assertions over the pure logic, run by `--self-test` |
+| `Sources/DefaultBrowser/Services/LayoutProbe.swift` | Rendered row geometry, run by `--measure-row` |
 | `Sources/DefaultBrowser/Views/` | SwiftUI: panel content, row, settings window, About panel |
 | `Resources/` | `Info.plist`, `AppIcon.icns`, and the `AppIcon.png` this README shows |
 | `tools/` | The gate oracles behind `GATES.md` |

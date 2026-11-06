@@ -83,9 +83,9 @@ anywhere in the repository, and on a documented path that no longer exists.
 
 ## Architecture
 
-- **SPM** (Package.swift): tools 6.4, `swiftLanguageMode(.v5)`, macOS 14 minimum
+- **SPM** (Package.swift): tools 6.4, `swiftLanguageMode(.v6)`, macOS 14 minimum
 - **LSUIElement**: menu bar only, no dock icon
-- **MVVM**: `BrowserStore` (ObservableObject) → views
+- **MVVM**: `BrowserStore` (`@Observable`) → views
 - **Persistence**: `~/Library/Application Support/ImperatorDefaultBrowser/order.json` (browser order only)
 
 ### Key patterns
@@ -130,8 +130,8 @@ Sources/DefaultBrowser/
   AppColors.swift         # Centralized brand color (AppColors.brand)
   ViewExtensions.swift    # .expandTapTarget()
   Models/Browser.swift
-  Services/               # BrowserService, BrowserStore, BrowserOrderStore, GlobeIcon, SVGRenderer, BrowserProbe, SelfTest
-  Views/                  # PopoverContentView, BrowserRow, SettingsView, AboutPanel, Components
+  Services/               # BrowserService, BrowserStore, BrowserOrderStore, GlobeIcon, SVGRenderer, BrowserProbe, SelfTest, LayoutProbe
+  Views/                  # PopoverContentView, BrowserRow, SettingsView, AboutPanel, Components, DragGrip
 tools/                    # the verify-*.mjs gate oracles
 Resources/                # Info.plist, AppIcon.icns (the artwork), AppIcon.png (README preview)
 ```
@@ -155,10 +155,25 @@ Key rules:
   uses behind a hovered preset row. The red row deliberately has none: clicking it does nothing, so
   lighting it up would promise an action it does not perform. `verify-brand.mjs` pins both the fill
   and the duration, because a colour constant drifting back is not something a diff reader catches
-- **Row switch**: `BrowserRow.indicator` is the system `Toggle`, identical to the footer's. It is
+- **Row switch**: `BrowserRow.indicator` is `BrandSwitch`, literally the same type the footer
+  uses. `BrandSwitch` carries a frame cut to the control's drawn size: `scaleEffect` scales the
+  drawing and leaves the layout box alone, so without it the switch keeps a 54x24 box, is centred
+  in it, and sits 15.45pt from the row edge where the padding is 8. It is
   `allowsHitTesting(false)`: the row is the control, so the switch never takes a click of its own,
   which also rules out switching the default browser off, something macOS does not allow. Nothing
   in the app changes the cursor: every hovered element keeps the macOS default arrow
+- **Settings reorder**: §7.18's lift-and-slide gesture, positioned rows in a `ScrollView`, never
+  a `List` with `.onMove`. The grabbed row follows the pointer and the others spring to their new
+  slots live; the drop only confirms what is already on screen, and writes once. Row content is
+  aligned on the window's 16pt margin and the fill bleeds 8pt past it, so the rows line up with the
+  heading and the footer. `tools/verify-reorder.mjs` gates the shape
+- **Drag grip**: `DragGrip`, the drawn two-by-three dot glyph, never `line.3.horizontal`. It has
+  **no hover state** and sits at `Color.gray` constantly. §7.18 still documents a `.tertiary` to
+  `Color.gray` crossfade driven by the row's hover; that rule is out of date and this app does not
+  follow it
+- **Settings rows have no hover fill.** The popover's rows light up because clicking one switches
+  the default browser. In Settings a click does nothing, the row is a drag handle, and the DEFAULT
+  capsule already says which browser is current
 - **Cryptex symlinks**: `Browser.icon` resolves symlinks before reading the icon, and the setter maps
   the Cryptex path back to `/Applications/Safari.app` (§22)
 - **SPM note**: asset catalogs do not compile under SPM, so there is no asset catalog here. The red
@@ -169,6 +184,38 @@ Key rules:
 - **Known deviation**: §9.1 says the panel header carries no icon. This app puts a 14pt glyph
   before the name because Imperator AirDrop, EQ, FreeGames and MenuBarFolders all do, and matching
   the family was the explicit requirement
+
+## Concurrency
+
+The target is in Swift 6 language mode. Everything in the app is `@MainActor`,
+which is what makes that cheap: the only thing that blocked it was a plain static
+image cache in `GlobeIcon`. Do not drop back to `.v5` to silence a new
+diagnostic. Each one this migration produced was a real main-thread assumption
+that was not written down:
+
+- `BrowserService.makeDefault` is `async`. The nested-callback version captured a
+  non-Sendable closure inside AppKit's own `@Sendable` completion handler, and
+  hopped back to the main queue by hand at three separate exits
+- `BrowserStore` confirms a switch with a cancellable `Task` rather than a
+  self-rescheduling `DispatchWorkItem`. A second switch cancels the first poll,
+  so two polls cannot both write `errorMessage`
+- `MenuBarPanel` uses `isolated deinit`. A plain deinit is nonisolated and cannot
+  touch the monitor handles, which are `Any?` and therefore not Sendable
+
+`tools/verify-modern.mjs` gates the language mode, the absence of
+`ObservableObject`, and the shape of the confirmation poll.
+
+## Measuring the rendered UI
+
+`--measure-row` renders the real `BrowserRow` through `NSHostingView` and prints
+the switch's geometry; `tools/verify-row-layout.mjs` asserts on it.
+
+Measure the **bundled** binary, never `.build/release`. AppKit draws the
+generation of a control named by the sdk field in `LC_BUILD_VERSION`, and SwiftPM
+stamps that with the deployment target, so the same `Toggle` is 42x25 under an
+sdk 14.0 stamp and 54x24 under the sdk 27 the Makefile applies. The gate refuses
+a binary whose sdk equals its minos, because measuring an unstamped build once
+produced a confident wrong answer that moved the switch 3.3pt the wrong way.
 
 ## Conventions
 

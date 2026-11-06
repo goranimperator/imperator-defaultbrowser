@@ -12,6 +12,7 @@
 // and the next one will pick a third place. Both get dropped for the same reason.
 
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -67,25 +68,60 @@ if (defaults.length !== 1) {
 }
 
 // Positive control for the negative assertions above.
+//
+// Whether this machine has anything to filter is not something the app
+// controls, and a gate that fails because the user uninstalled Screaming Frog
+// is reporting on the machine rather than on the code. So: exercise the control
+// when a real outsider is present, and otherwise require that the same rule is
+// covered deterministically in SelfTest, which runs the actual filter against
+// fixed paths and is gated by G11. The negative assertion above is checked
+// either way; this decides whether it was exercised here or delegated.
 const outsiders = rawPaths.filter(
   (p) => !ALLOWED_ROOTS.some((root) => p === root || p.startsWith(root + "/"))
 );
-if (outsiders.length === 0) {
-  failures.push(
-    "control failed: every handler LaunchServices reports already sits in an application " +
-      "root on this machine, so 'nothing outside a root survived' proves nothing. Install " +
-      "a tool that unpacks its own browser (Playwright, Puppeteer, Screaming Frog) and rerun"
-  );
-} else if (rawPaths.length <= rows.length) {
-  failures.push(
-    `control failed: filtering dropped nothing (raw ${rawPaths.length}, filtered ${rows.length})`
-  );
-} else {
+
+let controlNote;
+if (outsiders.length > 0) {
+  if (rawPaths.length <= rows.length) {
+    failures.push(
+      `control failed: an out-of-root handler is present but filtering dropped nothing (raw ${rawPaths.length}, filtered ${rows.length})`
+    );
+  }
   for (const outsider of outsiders) {
     if (rows.some((row) => row.appPath === outsider)) {
       failures.push(`${outsider} survived filtering but sits outside every application root`);
     }
   }
+  controlNote =
+    `control exercised on this machine: dropped ${outsiders.length} handler(s) outside every application root:\n` +
+    outsiders.map((o) => `  ${o}`).join("\n");
+} else {
+  // Nothing to filter here. Delegate, and prove the delegate exists.
+  const selfTest = readFileSync(
+    path.join(repoRoot, "Sources", "DefaultBrowser", "Services", "SelfTest.swift"),
+    "utf8"
+  );
+  const required = [
+    "ms-playwright",
+    "puppeteer",
+    ".ScreamingFrogSEOSpider",
+    "/ApplicationsEvil/",
+  ];
+  const missing = required.filter((marker) => !selfTest.includes(marker));
+  if (missing.length > 0) {
+    failures.push(
+      "control failed: this machine has no out-of-root handler to filter, and " +
+        `SelfTest no longer covers the rule either (missing: ${missing.join(", ")})`
+    );
+  }
+  if (!selfTest.includes("!BrowserService.isInApplicationDirectory(")) {
+    failures.push(
+      "control failed: SelfTest has no negative isInApplicationDirectory assertion to stand in for the missing machine control"
+    );
+  }
+  controlNote =
+    "control delegated: every handler on this machine already sits in an application root, " +
+    `so the rule is covered by SelfTest's fixed-path assertions instead (G11, ${required.length} out-of-root cases)`;
 }
 
 if (failures.length > 0) {
@@ -97,6 +133,5 @@ console.log(`filtered ${rawPaths.length} handlers down to ${rows.length} browser
 for (const row of rows) {
   console.log(`  ${row.marker === "*" ? "default" : "       "} ${row.name} (${row.bundleID})`);
 }
-console.log(`control: dropped ${outsiders.length} handler(s) outside every application root:`);
-for (const outsider of outsiders) console.log(`  ${outsider}`);
+console.log(controlNote);
 console.log("DISCOVERY_OK");

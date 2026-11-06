@@ -4,7 +4,7 @@ OWNS: Package.swift, Makefile, README.md, LICENSE, CLAUDE.md, GATES.md, .gitigno
 
 Scope: A brand-book-compliant macOS menu bar app that lists every installed browser one per row in a 340pt popover, switches the system default browser on click, and exposes a settings window for rescanning and reordering.
 
-Environment for every runnable gate: macOS 27.0 (26A428), Xcode 27.0 (27A266a), Swift 6.4, macOS SDK 27.0, zsh, working directory = repository root.
+Environment for every runnable gate: macOS 27.2, Xcode 27.2 (27B52), Swift 6.4.2, macOS SDK 27.2, zsh, working directory = repository root.
 
 - [x] G1: The release build compiles
   CHECK: swift build -c release >/dev/null 2>&1 && echo BUILD_OK
@@ -34,7 +34,7 @@ Environment for every runnable gate: macOS 27.0 (26A428), Xcode 27.0 (27A266a), 
 - [x] G6: The source and Info.plist satisfy the brand book rules that can be read statically
   CHECK: node tools/verify-brand.mjs
   EXPECT: BRAND_OK
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; path=bdfa726d98c4/47 entries; output=checked 18 Swift files and Info.plist against the brand book | BRAND_OK
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; path=bdfa726d98c4/47 entries; output=checked 20 Swift files and Info.plist against the brand book | BRAND_OK. Now also pins the row hover fill, the hover duration, and the one-switch rule: every switch in the app is BrandSwitch, whose frame is derived from the measured control size times the scale rather than typed in.
 
 - [x] G7: The signed bundle launches, stays up, and exits cleanly without stderr noise
   CHECK: node tools/verify-launch.mjs
@@ -60,7 +60,7 @@ Environment for every runnable gate: macOS 27.0 (26A428), Xcode 27.0 (27A266a), 
 - [x] G12: No dead declarations, no em or en dashes, and no stale references in source or docs
   CHECK: node tools/verify-hygiene.mjs
   EXPECT: HYGIENE_OK
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; path=bdfa726d98c4/47 entries; output=18 Swift files scanned for dead declarations, 36 files scanned for em and en dashes, 3 files scanned for stale path references | HYGIENE_OK
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; path=bdfa726d98c4/47 entries; output=20 Swift files scanned for dead declarations, 41 files scanned for em and en dashes, 3 files scanned for stale path references | HYGIENE_OK
 
 - [x] G13: The release flow produces a signed, version-stamped zip that unpacks to a launchable bundle
   CHECK: node tools/verify-release.mjs
@@ -70,4 +70,24 @@ Environment for every runnable gate: macOS 27.0 (26A428), Xcode 27.0 (27A266a), 
 - [x] G14: The shipped binary draws macOS 27 controls while still running on macOS 14
   CHECK: node tools/verify-sdk-stamp.mjs
   EXPECT: SDK_STAMP_OK
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; path=bdfa726d98c4/47 entries; output=bundle stamps minos 14.0 with sdk 27.0, so it runs on 14.0 and draws 27.0 controls | SDK_STAMP_OK
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; path=bdfa726d98c4/47 entries; output=bundle stamps minos 14.0 with sdk 27.2, so it runs on 14.0 and draws 27.2 controls | SDK_STAMP_OK
+
+- [x] G15: Settings reorders with the house lift-and-slide gesture, not a system drag session
+  CHECK: node tools/verify-reorder.mjs
+  EXPECT: REORDER_OK
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; output=Settings reorders with a positioned-row DragGesture: 3pt start, 1.03 lift, house settle spring, haptics, one write per drop, keyboard actions | REORDER_OK. The List with .onMove this replaced ran a system drag session, which brand book 7.14 and 7.18 both forbid for reordering. Controls proved to fire by restoring each forbidden shape: a reinstated .onMove, a commitOrder() inside the drag handler, and the line.3.horizontal stock grip all fail the gate.
+
+- [x] G16: The app builds and ships in Swift 6 language mode with Observation
+  CHECK: node tools/verify-modern.mjs
+  EXPECT: MODERN_OK
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; output=Swift 6 language mode on a macOS 14 minimum, 20 Swift files free of ObservableObject, store confirmed by a cancellable Task | MODERN_OK. A probe build in .v6 before any change reported one real error, a plain static image cache in GlobeIcon; the manifest comment claiming the app's AppKit code blocked Swift 6 was stale. Controls proved to fire: dropping the manifest to .v5 and restoring ObservableObject on BrowserStore each fail the gate.
+
+- [x] G18: The popover row's switch sits on the row's trailing padding
+  CHECK: node tools/verify-row-layout.mjs
+  EXPECT: ROW_LAYOUT_OK
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; output=row switch drawn 29.7x13.2pt, trailing gap 8.15pt against 8pt of row padding, measured on the sdk 27.2 bundle | ROW_LAYOUT_OK. The defect: scaleEffect scales what a control draws and leaves its layout box alone, so the row switch kept a 54x24 box, was centred in it, and sat 15.45pt from the row edge where the padding is 8. Measured through --measure-row, which renders the real BrowserRow in an NSHostingView. Controls proved to fire at 15.45 (no frame) and 11.45 (a frame built from the wrong size). The gate reads the bundled binary and refuses one whose sdk equals its minos: the same Toggle is 42x25 under an sdk 14.0 stamp and 54x24 under sdk 27.2, and measuring an unstamped build once gave a confident wrong answer that moved the switch 3.3pt the wrong way.
+
+- [x] G17: The release build is clean in Swift 6 mode, with no warnings
+  CHECK: swift build -c release 2>&1 | grep -cE "warning:|error:" | grep -qx 0 && echo CLEAN_BUILD_OK
+  EXPECT: CLEAN_BUILD_OK
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/goran/Code/imperator/imperator-menu-bar-default-browser; output=CLEAN_BUILD_OK. Swift 6.4.2, Xcode 27.2. Three diagnostics were fixed rather than silenced: a nonisolated static cache in GlobeIcon, a non-Sendable completion handler captured inside AppKit's own @Sendable completion in BrowserService, and a nonisolated deinit in MenuBarPanel reaching main-actor monitor handles.
