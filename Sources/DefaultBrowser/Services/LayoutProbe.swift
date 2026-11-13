@@ -58,8 +58,38 @@ enum LayoutProbe {
         print("switch frame: x=\(fmt(drawn.minX)) y=\(fmt(drawn.minY)) w=\(fmt(drawn.width)) h=\(fmt(drawn.height))")
         print("trailing gap: \(fmt(host.frame.width - drawn.maxX))")
         print("leading gap: \(fmt(drawn.minX))")
+        // The default row must not be marked with a fill any more: the switch
+        // is the only thing that says which browser holds the role. Rendered
+        // rather than grepped, because "no background modifier in the source"
+        // and "nothing painted behind the row" are different claims.
+        let defaultAlpha = backgroundAlpha(isDefault: true, browser: browser)
+        let plainAlpha = backgroundAlpha(isDefault: false, browser: browser)
+        print("row fill alpha, default row: \(fmt(defaultAlpha))")
+        print("row fill alpha, other row: \(fmt(plainAlpha))")
+
         print("MEASURE_ROW_OK")
         return 0
+    }
+
+    /// Alpha painted behind the row, sampled at the vertical middle of the left
+    /// padding: inside the row's frame, left of the icon, so only a background
+    /// can put anything there. A rounded rectangle fill covers this point; its
+    /// 6pt corner radius only cuts the corners.
+    private static func backgroundAlpha(isDefault: Bool, browser: Browser) -> CGFloat {
+        let row = BrowserRow(browser: browser, isDefault: isDefault, action: {})
+            .frame(width: rowWidth)
+        let host = NSHostingView(rootView: row)
+        host.frame = NSRect(x: 0, y: 0, width: rowWidth, height: BrowserRow.height)
+        host.layoutSubtreeIfNeeded()
+
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return -1 }
+        // Transparent to start with, so anything non-zero was painted by the row.
+        rep.size = host.bounds.size
+        host.cacheDisplay(in: host.bounds, to: rep)
+
+        let x = Int(4 * (rep.pixelsWide / Int(host.bounds.width.rounded())))
+        let y = rep.pixelsHigh / 2
+        return rep.colorAt(x: x, y: y)?.alphaComponent ?? -1
     }
 
     /// `Toggle(.switch)` is an `NSSwitch` under SwiftUI, so the tree walk finds

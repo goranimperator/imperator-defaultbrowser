@@ -149,14 +149,17 @@ Key rules:
   lays `.background(Color.black.opacity(0.15))` over it. Dismissal and Escape are the panel's own,
   not the delegate's: two monitors closing the same panel raced each other on the toggle
 - **HoverButton / LaunchAtLoginToggle**: opacity 0.45 to 1.0, `.easeInOut(0.2)`, in `Views/Components.swift`
-- **Rows**: 6pt corner radius, 6pt apart; the default browser row is filled `AppColors.brand`.
-  Rows that are not the default take an `AppColors.brand.opacity(0.1)` hover fill over
-  `.easeInOut(0.2)`, the brand book's one row hover state and the same fill Imperator CRT Overlay
-  uses behind a hovered preset row. The red row deliberately has none: clicking it does nothing, so
-  lighting it up would promise an action it does not perform. `verify-brand.mjs` pins both the fill
-  and the duration, because a colour constant drifting back is not something a diff reader catches
-- **Row switch**: `BrowserRow.indicator` is `BrandSwitch`, literally the same type the footer
-  uses. `BrandSwitch` carries a frame cut to the control's drawn size: `scaleEffect` scales the
+- **Rows carry no background at all**, 6pt apart. No fill behind the default row and no hover
+  fill on any row: the switch is the only thing that marks the default browser, in the popover and
+  in Settings alike. The rows used to be filled `AppColors.brand` when active with an
+  `AppColors.brand.opacity(0.1)` hover on the rest, which is three signals for one fact.
+  `verify-row-layout.mjs` renders a row and samples what is painted behind it, so this is measured
+  rather than grepped; `verify-brand.mjs` additionally forbids `.background(`, `onHover` and
+  `AppColors.brand` in `BrowserRow.swift` so the shapes cannot come back
+- **Row switch**: `BrowserRow.indicator` is `BrandSwitch`, literally the same type the footer and
+  the Settings rows use. `BrandSwitch` takes a `label`, which `labelsHidden()` keeps off screen but
+  leaves on the control: it was `Toggle("")` for several releases, so the Settings list handed
+  VoiceOver one unnamed "switch" per browser. `BrandSwitch` carries a frame cut to the control's drawn size: `scaleEffect` scales the
   drawing and leaves the layout box alone, so without it the switch keeps a 54x24 box, is centred
   in it, and sits 15.45pt from the row edge where the padding is 8. It is
   `allowsHitTesting(false)`: the row is the control, so the switch never takes a click of its own,
@@ -171,9 +174,15 @@ Key rules:
   **no hover state** and sits at `Color.gray` constantly. §7.18 still documents a `.tertiary` to
   `Color.gray` crossfade driven by the row's hover; that rule is out of date and this app does not
   follow it
-- **Settings rows have no hover fill.** The popover's rows light up because clicking one switches
-  the default browser. In Settings a click does nothing, the row is a drag handle, and the DEFAULT
-  capsule already says which browser is current
+- **Settings marks the default with the same switch**, not with a DEFAULT capsule and a
+  "Set as default" button. Those were two different controls, neither of which matched the
+  popover. The Settings switch is live, unlike the popover's, because there the row is the control
+  and here the row is a drag handle. It cannot be switched off: macOS always has a default, so a
+  clearable switch would offer a state the system will not hold, and it ignores presses while a row
+  is lifted so one gesture cannot both reorder the list and change the default
+- **The store shows a new default immediately**, before the LaunchServices call returns, and
+  `refresh()` puts the real handler back if the call fails. The round trip is 2 to 4 seconds and has
+  been measured over 15, so waiting left the row the user had just switched on sitting visibly off
 - **Cryptex symlinks**: `Browser.icon` resolves symlinks before reading the icon, and the setter maps
   the Cryptex path back to `/Applications/Safari.app` (§22)
 - **SPM note**: asset catalogs do not compile under SPM, so there is no asset catalog here. The red

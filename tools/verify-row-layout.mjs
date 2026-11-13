@@ -123,6 +123,32 @@ if (!(drawnHeight < 32)) {
   failures.push(`the row switch is ${drawnHeight}pt tall, taller than the 32pt row`);
 }
 
+// Nothing is painted behind a row, default or not. The switch is the only
+// marker. Measured rather than grepped: "no .background in the source" and
+// "nothing painted behind the row" are different claims, and only the second
+// one is what a user sees. Proved to detect a fill: restoring the old
+// RoundedRectangle(cornerRadius: 6).fill(AppColors.brand) makes the default
+// row report 1.00 here.
+for (const [label, pattern] of [
+  ["default row", /row fill alpha, default row:\s*(-?[\d.]+)/],
+  ["other row", /row fill alpha, other row:\s*(-?[\d.]+)/],
+]) {
+  const match = output.match(pattern);
+  if (!match) {
+    failures.push(`could not read the ${label} fill alpha from --measure-row`);
+    continue;
+  }
+  const alpha = Number(match[1]);
+  if (alpha < 0) {
+    failures.push(`the ${label} fill alpha could not be sampled (${alpha})`);
+  } else if (alpha !== 0) {
+    failures.push(
+      `the ${label} is painted with a fill (alpha ${alpha}). Rows carry no background: ` +
+        "the switch is what marks the default browser."
+    );
+  }
+}
+
 // Control for the tolerance: the value this gate was written against must fail
 // it, or the check would pass on the defect it exists to catch.
 if (Math.abs(15.45 - ROW_PADDING) <= TOLERANCE) {
@@ -138,6 +164,6 @@ if (failures.length > 0) {
 
 console.log(
   `row switch drawn ${drawnWidth}x${drawnHeight}pt, trailing gap ${trailingGap}pt against ` +
-    `${ROW_PADDING}pt of row padding, measured on the sdk ${sdk} bundle`
+    `${ROW_PADDING}pt of row padding, no fill behind either row, measured on the sdk ${sdk} bundle`
 );
 console.log("ROW_LAYOUT_OK");

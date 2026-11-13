@@ -149,28 +149,53 @@ require(
 );
 require(popover.includes(".padding(.vertical, 10)"), "§4.1 footer padding is not V:10");
 
-// §7.5 rows, §13 corner radius.
-const row = sources.get("Sources/DefaultBrowser/Views/BrowserRow.swift") ?? "";
-require(row.includes("cornerRadius: 6"), "§13 browser rows do not use a 6pt corner radius");
-require(row.includes("AppColors.brand"), "§7.5 the active row is not marked in brand red");
+// §7.5 rows. The switch is the only marker of the default browser: no fill
+// behind the active row, and no hover fill on any row. The rules these replaced
+// required a brand red fill and a red-tinted hover, which is three signals for
+// one fact on a list of three rows.
+//
+// The fill itself is asserted by measurement in verify-row-layout.mjs, which
+// renders the row and samples what is painted. These checks keep the shapes
+// that produce it from coming back, because a reinstated .background would be
+// a passing diff against that gate only until someone also edited the probe.
+const row = stripComments(sources.get("Sources/DefaultBrowser/Views/BrowserRow.swift") ?? "");
+require(row.length > 0, "BrowserRow.swift is missing");
+require(
+  !/\.background\s*\(/.test(row),
+  "§7.5 a row carries a background again: the switch is the only default marker"
+);
+require(
+  !row.includes("onHover"),
+  "§7.5 a row has a hover state again: rows do not light up under the pointer"
+);
+require(
+  !row.includes("AppColors.brand"),
+  "§7.5 a row paints itself brand red again"
+);
 
-// Row hover: the brand book gives one fill for a hovered row, brand red at 10%,
-// and 0.2s easeInOut for every hover state. This app shipped a white 8% fill at
-// 0.15s for several releases, which is a drift a reader cannot spot in a diff
-// of a colour constant, so it is pinned rather than described.
+// Controls for those three negative assertions: each has to fire on the shape
+// it forbids, or all three would pass on any file at all.
+for (const [shape, label] of [
+  [".background(\n RoundedRectangle(cornerRadius: 6)\n .fill(AppColors.brand)\n)", "background"],
+  [".onHover { isHovered = $0 }", "onHover"],
+  ["AppColors.brand.opacity(0.1)", "AppColors.brand"],
+]) {
+  const fires =
+    (label === "background" && /\.background\s*\(/.test(shape)) ||
+    (label === "onHover" && shape.includes("onHover")) ||
+    (label === "AppColors.brand" && shape.includes("AppColors.brand"));
+  if (!fires) {
+    failures.push(`control failed: the ${label} check does not fire on the shape it forbids`);
+  }
+}
+
+// The switch carries an accessible name. It was Toggle("") for several
+// releases, so in the Settings list, where it is the only actionable control in
+// a row, VoiceOver reached one unnamed "switch" per browser.
+const settings = stripComments(sources.get("Sources/DefaultBrowser/Views/SettingsView.swift") ?? "");
 require(
-  row.includes("hoverFill = AppColors.brand.opacity(0.1)"),
-  "§7.5 the row hover fill is not AppColors.brand.opacity(0.1)"
-);
-require(
-  row.includes("hoverDuration: TimeInterval = 0.2"),
-  "§7.5 the row hover transition is not 0.2s"
-);
-// Control for both: the fill this replaced must not be anywhere in the file, or
-// the two checks above would pass on a file that still carries the old one.
-require(
-  !row.includes("Color.white.opacity(0.08)"),
-  "§7.5 the old white row hover fill is still present"
+  /BrandSwitch\(label:/.test(row) && /BrandSwitch\(label:/.test(settings),
+  "§7.2 a BrandSwitch is built without an accessible label"
 );
 
 // §7.2 toggle spec. One switch type, used by both the row and the footer, so
