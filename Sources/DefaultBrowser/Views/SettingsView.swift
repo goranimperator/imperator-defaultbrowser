@@ -182,37 +182,43 @@ struct SettingsView: View {
 
             Spacer(minLength: 8)
 
-            if isDefault {
-                Text("DEFAULT")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(AppColors.brand)
-                    .clipShape(Capsule())
-            } else {
-                Button {
+            // The same switch the popover's rows carry, so one control means
+            // the same thing in both places. It replaced a DEFAULT capsule on
+            // the active row and a "Set as default" button on every other one:
+            // two different controls, neither of which said what the popover
+            // said.
+            //
+            // Live here, unlike the popover's, because in this window the row
+            // itself is a drag handle rather than the control.
+            BrandSwitch(label: browser.name, isOn: Binding(
+                get: { isDefault },
+                // Turning one on makes it the default. There is no off: macOS
+                // always has a default browser, so a switch that could be
+                // cleared would offer a state the system will not hold.
+                set: { wantsDefault in
+                    guard wantsDefault, !isDefault else { return }
+                    // Not while a row is being carried. The row's reorder drag
+                    // is a simultaneousGesture, so a press that starts on the
+                    // switch can lift the row as well; without this one press
+                    // could both reorder the list and change the system default.
+                    guard lifted == nil else { return }
                     store.makeDefault(browser) {}
-                } label: {
-                    Text("Set as default")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white)
                 }
-                .buttonStyle(.plain)
-                .disabled(store.isSwitching)
-                .opacity(store.isSwitching ? 0.35 : 1)
-                .animation(.easeInOut(duration: 0.2), value: store.isSwitching)
-                .help("Make \(browser.name) the default browser")
-            }
+            ))
+            .disabled(store.isSwitching)
+            .opacity(store.isSwitching ? 0.35 : 1)
+            .animation(.easeInOut(duration: 0.2), value: store.isSwitching)
+            .help(isDefault
+                  ? "\(browser.name) is the default browser"
+                  : "Make \(browser.name) the default browser")
         }
         // Inner padding. Brand book §7.5: H 8, V 4-6.
         .padding(.horizontal, Self.fillInset)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // No hover fill on these rows. The popover's rows light up because a
-        // click there switches the default browser; here a click does nothing,
-        // the row is a drag handle, and the DEFAULT capsule already says which
-        // one is current.
+        // No hover fill on these rows, and no fill behind the active one. The
+        // switch says which browser is the default; a background saying it
+        // again was a second signal for the same fact.
         //
         // Outer padding: vertical only. A horizontal inset would push the
         // content off the window margin, which is what this layout is arranged

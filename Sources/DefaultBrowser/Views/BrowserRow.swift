@@ -1,33 +1,18 @@
 import SwiftUI
 
-/// Brand book §7.5. One installed browser, one row.
+/// One installed browser, one row.
 ///
-/// Every row carries a switch on the right, on for the browser that currently
-/// holds the http and https roles. That row is also filled with brand red, so
-/// the active browser reads at a glance even at a glance's distance.
-///
-/// Only the rows that are not the default get a hover fill. The red row is
-/// already the loudest thing in the popover and clicking it does nothing, so
-/// lighting it up under the pointer would promise an action it does not perform.
+/// The switch is the only thing that marks the default browser. No fill behind
+/// the active row and no hover fill: the row carried a brand red background and
+/// a red-tinted hover, which put three different signals on one list. The switch
+/// says which browser holds the http and https roles, the same way the Settings
+/// window's rows do.
 struct BrowserRow: View {
     let browser: Browser
     let isDefault: Bool
     let action: () -> Void
 
     static let height: CGFloat = 32
-
-    /// Brand book: row hover is the brand red at 10%, the same fill Imperator
-    /// CRT Overlay puts behind a hovered preset row. Faint enough to read as a
-    /// surface lifting rather than a selection, and it ties the hover to the
-    /// colour the default row is filled with instead of introducing a second
-    /// highlight colour.
-    private static let hoverFill = AppColors.brand.opacity(0.1)
-    /// Brand book: 0.2s easeInOut for every hover state, rows included.
-    private static let hoverDuration: TimeInterval = 0.2
-
-    @State private var isHovered = false
-
-    private var isHighlighted: Bool { isHovered && !isDefault }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -36,9 +21,12 @@ struct BrowserRow: View {
                 .interpolation(.high)
                 .frame(width: 20, height: 20)
 
+            // Brand book §7.5: .regular when inactive, .medium when active. That
+            // weight is the only thing beside the switch that separates the two,
+            // and it is deliberately quiet.
             Text(browser.name)
                 .font(.system(size: 13, weight: isDefault ? .medium : .regular))
-                .foregroundStyle(isDefault ? Color.white : Color.primary)
+                .foregroundStyle(Color.primary)
                 .lineLimit(1)
                 .truncationMode(.tail)
 
@@ -48,32 +36,19 @@ struct BrowserRow: View {
         }
         .padding(.horizontal, 8)
         .frame(height: Self.height)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isDefault ? AppColors.brand : Color.clear)
-        )
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(isHighlighted ? Self.hoverFill : Color.clear)
-        )
         .expandTapTarget()
         .onTapGesture(perform: action)
-        // The hover flag is set on the same region the tap target covers, not
-        // just the row's painted content.
-        .onHover { isHovered = $0 }
-        .animation(.easeInOut(duration: Self.hoverDuration), value: isHighlighted)
         .help(isDefault ? "\(browser.name) is the default browser" : "Make \(browser.name) the default browser")
     }
 
-    /// Brand book §7.2: the system switch, the same control the footer uses, not
-    /// a drawn lookalike. It shows whether this browser holds the http and https
-    /// roles.
+    /// Brand book §7.2: the system switch, the same control the footer and the
+    /// Settings rows use, not a drawn lookalike.
     ///
-    /// It never takes a click of its own. The row is the control, which rules out
-    /// the one gesture a live toggle would invite and the system cannot honour:
-    /// switching the default browser off. macOS always has one.
+    /// It never takes a click of its own here. The row is the control, which
+    /// rules out the one gesture a live toggle would invite and the system
+    /// cannot honour: switching the default browser off. macOS always has one.
     private var indicator: some View {
-        BrandSwitch(isOn: .constant(isDefault))
+        BrandSwitch(label: browser.name, isOn: .constant(isDefault))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
     }

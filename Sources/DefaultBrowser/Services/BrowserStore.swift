@@ -87,6 +87,14 @@ final class BrowserStore {
         isSwitching = true
         errorMessage = nil
 
+        // Show the new default now, before the call, not after it. The switch in
+        // Settings reads straight from this, and the round trip takes 2 to 4
+        // seconds and has been measured over 15, so waiting left the row the
+        // user had just switched on sitting visibly off for the whole call: the
+        // click read as having done nothing. On failure `refresh()` below puts
+        // the real handler back and the banner says what happened.
+        defaultBundleID = browser.bundleID
+
         Task {
             let error = await BrowserService.makeDefault(browser)
             isSwitching = false
@@ -97,9 +105,6 @@ final class BrowserStore {
                 return
             }
 
-            // macOS accepted the change, so show it straight away and verify in
-            // the background rather than making the user watch a spinner.
-            defaultBundleID = browser.bundleID
             confirmationTask = Task { await confirm(browser) }
             onSuccess()
         }

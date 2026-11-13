@@ -35,6 +35,11 @@ struct HoverButton<Label: View>: View {
 /// Makefile stamps. 54x24 is what ships. `tools/verify-row-layout.mjs` measures
 /// the bundled binary and refuses an unstamped one for exactly this reason.
 struct BrandSwitch: View {
+    /// The switch's accessible name. `labelsHidden()` keeps it off screen but
+    /// leaves it on the control, which is the whole reason this is a parameter
+    /// rather than the empty string it used to be: an unnamed switch is just
+    /// "switch" to VoiceOver, and in the Settings list there is one per row.
+    let label: String
     @Binding var isOn: Bool
 
     /// The rendered control's size under the shipped sdk 27 stamp, from
@@ -46,7 +51,7 @@ struct BrandSwitch: View {
     }
 
     var body: some View {
-        Toggle("", isOn: $isOn)
+        Toggle(label, isOn: $isOn)
             .toggleStyle(.switch)
             .scaleEffect(Self.scale)
             .tint(AppColors.brand)
@@ -64,7 +69,7 @@ struct LaunchAtLoginToggle: View {
         HStack(spacing: 6) {
             Text("Open at Login")
                 .font(.caption)
-            BrandSwitch(isOn: $isEnabled)
+            BrandSwitch(label: "Open at Login", isOn: $isEnabled)
                 .onChange(of: isEnabled) { _, newValue in
                     do {
                         if newValue { try SMAppService.mainApp.register() }
